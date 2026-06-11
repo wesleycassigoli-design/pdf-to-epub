@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+
+:root {
+  --radius: 0.5rem;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: #0f1117;
+  color: #f1f5f9;
+}
+
+/* Scrollbar personalizada */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track { background: #181c27; }
+::-webkit-scrollbar-thumb { background: #252a38; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #3d6eff; }
+
+/* Focus ring acessível */
+:focus-visible {
+  outline: 2px solid #3d6eff;
+  outline-offset: 2px;
+}
