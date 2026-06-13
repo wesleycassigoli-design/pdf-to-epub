@@ -28,10 +28,10 @@ celery_app.conf.update(
     timezone="America/Sao_Paulo",
     enable_utc=True,
     task_track_started=True,
-    task_acks_late=True,          # só ack após conclusão (evita perda em crash)
-    worker_prefetch_multiplier=1,  # um job por worker por vez (PDFs são pesados)
-    task_soft_time_limit=1800,    # 30 min soft limit
-    task_time_limit=2100,         # 35 min hard limit
+    task_acks_late=True,
+    worker_prefetch_multiplier=1,
+    task_soft_time_limit=1800,
+    task_time_limit=2100,
 )
 
 
@@ -54,14 +54,14 @@ def convert_pdf_to_epub(
     original_name: str,
 ) -> dict:
     """
-    Task principal. Recebe o path do PDF já salvo localmente,
-    processa e gera os EPUBs.
+    Task principal. Recebe o caminho do PDF no Supabase Storage,
+    baixa, processa e gera os EPUBs.
     """
     from app.models.models import Book, Chapter, Conversion
     from app.services.pdf_processor import analyze_pdf
     from app.services.epub_generator import build_epub, build_chapter_epub
     from app.services.ocr_service import ocr_page_to_svg
-    from app.services.storage_service import upload_to_supabase, get_epub_output_path
+    from app.services.storage_service import upload_to_supabase, get_epub_output_path, download_from_supabase
 
     start_time = time.time()
     log_lines = []
@@ -89,11 +89,19 @@ def convert_pdf_to_epub(
         db.commit()
 
         self.update_state(state="PROGRESS", meta={"step": "analyzing", "progress": 10})
+        log("Baixando PDF do storage")
+
+        # ── 1.5 Baixa o PDF do Supabase para o disco local do worker ──────────
+        local_pdf = os.path.join(settings.temp_dir, f"{book_id}_source.pdf")
+        ok = download_from_supabase(pdf_path, local_pdf)
+        if not ok:
+            raise FileNotFoundError(f"Não foi possível baixar o PDF do storage: {pdf_path}")
+
         log("Iniciando análise do PDF")
 
         # ── 2. Análise estrutural ─────────────────────────────────────────────
         images_dir = os.path.join(settings.temp_dir, f"{book_id}_images")
-        structure = analyze_pdf(pdf_path, images_dir)
+        structure = analyze_pdf(local_pdf, images_dir)
 
         book.page_count = structure.total_pages
         db.commit()
@@ -104,7 +112,7 @@ def convert_pdf_to_epub(
             import fitz
             log("PDF escaneado detectado — ativando OCR")
             self.update_state(state="PROGRESS", meta={"step": "ocr", "progress": 25})
-            doc = fitz.open(pdf_path)
+            doc = fitz.open(local_pdf)
             for page_content in structure.pages:
                 page = doc[page_content.page_number - 1]
                 if page_content.is_scanned:
@@ -121,7 +129,6 @@ def convert_pdf_to_epub(
         build_epub(structure, full_epub_local)
         log(f"EPUB completo gerado: {full_epub_local}")
 
-        # Upload Supabase
         full_epub_url = await_upload(full_epub_local, f"epubs/{book_id}/full.epub")
 
         book.full_epub = full_epub_url or full_epub_local
@@ -142,7 +149,6 @@ def convert_pdf_to_epub(
                 f"epubs/{book_id}/chapters/ch{ch_info.number:03d}.epub"
             )
 
-            # Salva no banco
             chapter = Chapter(
                 book_id=uuid.UUID(book_id),
                 title=ch_info.title,
@@ -170,8 +176,7 @@ def convert_pdf_to_epub(
             conv.logs = "\n".join(log_lines)
             db.commit()
 
-        # Limpeza dos temporários
-        _cleanup_temp(pdf_path, images_dir)
+        _cleanup_temp(local_pdf, images_dir)
 
         self.update_state(state="SUCCESS", meta={"step": "done", "progress": 100})
         return {"status": "done", "book_id": book_id, "chapters": len(structure.chapters)}
