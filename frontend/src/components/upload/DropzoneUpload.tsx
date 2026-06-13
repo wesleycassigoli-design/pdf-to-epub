@@ -30,11 +30,12 @@ export function DropzoneUpload({ onSuccess }: Props) {
       toast.success("PDF enviado! Conversão iniciada.");
       onSuccess(resp);
     } catch (err: unknown) {
+      const errAny = err as { response?: { data?: { detail?: { message?: string } | string } } };
+      const detail = errAny?.response?.data?.detail;
       const msg =
-        (err as { response?: { data?: { detail?: { message?: string } | string } } })
-          ?.response?.data?.detail?.message ||
-        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
-        "Falha no upload. Tente novamente.";
+      (typeof detail === "object" && detail !== null ? detail.message : undefined) ||
+      (typeof detail === "string" ? detail : undefined) ||
+       "Falha no upload. Tente novamente.";
       setErrorMsg(typeof msg === "string" ? msg : JSON.stringify(msg));
       setState("error");
       toast.error("Falha no upload");
