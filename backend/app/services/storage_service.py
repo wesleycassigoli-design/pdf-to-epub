@@ -107,3 +107,20 @@ def get_epub_output_path(book_id: str, filename: str) -> str:
     os.makedirs(settings.output_dir, exist_ok=True)
     safe_name = _sanitize_filename(filename)
     return os.path.join(settings.output_dir, f"{book_id}_{safe_name}")
+
+def download_from_supabase(storage_path: str, local_path: str) -> bool:
+    """Baixa um arquivo do Supabase Storage para o disco local. Retorna True se OK."""
+    supabase = _get_supabase()
+    if not supabase:
+        logger.warning("supabase_not_configured", action="skipping_download")
+        return False
+    try:
+        data = supabase.storage.from_(settings.supabase_storage_bucket).download(storage_path)
+        os.makedirs(os.path.dirname(local_path), exist_ok=True)
+        with open(local_path, "wb") as f:
+            f.write(data)
+        logger.info("supabase_download_ok", path=storage_path)
+        return True
+    except Exception as e:
+        logger.error("supabase_download_failed", error=str(e), path=storage_path)
+        return False
