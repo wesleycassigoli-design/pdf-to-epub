@@ -49,9 +49,9 @@ async def upload_pdf(
     await db.commit()
     await db.refresh(book)
 
-    # Enfileira task Celery
+    # Enfileira task Celery (passa o caminho do Supabase, não o local)
     task = convert_pdf_to_epub.apply_async(
-        args=[str(book.id), temp_path, sanitized_name],
+        args=[str(book.id), storage_path, sanitized_name],
         task_id=str(uuid.uuid4()),
     )
 
