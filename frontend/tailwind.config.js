@@ -8,17 +8,13 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        brand: {
-          400: "#6690ff",
-          500: "#3d6eff",
-          600: "#2050f5",
-        },
-        surface: {
-          DEFAULT: "#0f1117",
-          card: "#181c27",
-          border: "#252a38",
-          hover: "#1e2336",
-        },
+        "brand-400": "#6690ff",
+        "brand-500": "#3d6eff",
+        "brand-600": "#2050f5",
+        "surface": "#0f1117",
+        "surface-card": "#181c27",
+        "surface-border": "#252a38",
+        "surface-hover": "#1e2336",
       },
     },
   },
