@@ -122,7 +122,7 @@ def _render_page_png(page: fitz.Page) -> str:
     return base64.b64encode(pix.tobytes("png")).decode()
 
 
-def analyze_pdf(pdf_path: str, images_dir: str, mode: str = "fiel") -> BookStructure:
+def analyze_pdf(pdf_path: str, images_dir: str, mode: str = "fiel", original_filename: str = "") -> BookStructure:
     """
     Analisa o PDF.
     mode="fiel"  → rasteriza cada página (gera imagem)
@@ -131,7 +131,7 @@ def analyze_pdf(pdf_path: str, images_dir: str, mode: str = "fiel") -> BookStruc
     os.makedirs(images_dir, exist_ok=True)
     doc = fitz.open(pdf_path)
     metadata = doc.metadata or {}
-    book_title = metadata.get("title") or Path(pdf_path).stem
+    book_title = metadata.get("title") or (Path(original_filename).stem if original_filename else Path(pdf_path).stem)
 
     toc = doc.get_toc()
     has_toc = len(toc) > 0
