@@ -85,7 +85,7 @@ def convert_pdf_to_epub(self, book_id: str, pdf_path: str, original_name: str, m
         log("Analisando PDF")
         self.update_state(state="PROGRESS", meta={"step": "analyzing", "progress": 25})
         images_dir = os.path.join(settings.temp_dir, f"{book_id}_images")
-        structure = analyze_pdf(local_pdf, images_dir, mode=mode)
+        structure = analyze_pdf(local_pdf, images_dir, mode=mode, original_filename=original_name)
 
         book.page_count = structure.total_pages
         db.commit()
