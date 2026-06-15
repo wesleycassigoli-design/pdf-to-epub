@@ -59,10 +59,12 @@ export interface StatusResponse {
 
 export const uploadPdf = async (
   file: File,
+  mode: "fiel" | "texto",
   onProgress?: (pct: number) => void,
 ): Promise<UploadResponse> => {
   const form = new FormData();
   form.append("file", file);
+  form.append("mode", mode);
   const { data } = await api.post<UploadResponse>("/upload/", form, {
     headers: { "Content-Type": "multipart/form-data" },
     onUploadProgress: (e) => {
