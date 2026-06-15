@@ -1,6 +1,6 @@
 import uuid
 import os
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
@@ -19,16 +19,19 @@ settings = get_settings()
 @router.post("/", response_model=UploadResponse, status_code=202)
 async def upload_pdf(
     file: UploadFile = File(...),
+    mode: str = Form("fiel"),   # "fiel" (imagem) ou "texto" (reflow)
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Recebe PDF, valida, salva temporariamente e enfileira conversão.
-    Retorna book_id + task_id para polling de status.
+    Recebe PDF, valida, salva no Supabase e enfileira conversão.
+    mode: "fiel" = imagem por página (idêntico ao PDF)
+          "texto" = texto reflow (selecionável)
     """
-    # Validação + save temp
+    if mode not in ("fiel", "texto"):
+        mode = "fiel"
+
     temp_path, sanitized_name, file_size = await validate_and_save_upload(file)
 
-    # Cria registro no banco
     book = Book(
         filename=sanitized_name,
         original_name=file.filename or sanitized_name,
@@ -36,33 +39,36 @@ async def upload_pdf(
         status="pending",
     )
     db.add(book)
-    await db.flush()  # garante o book.id antes do upload
+    await db.flush()
 
-    # Upload para Supabase Storage (async)
     storage_path = f"pdfs/{book.id}/{sanitized_name}"
     supabase_url = await upload_to_supabase(temp_path, storage_path)
-    book.original_pdf = supabase_url or temp_path  # fallback: path local
+    book.original_pdf = supabase_url or temp_path
 
-    # Cria registro de conversão
     conv = Conversion(book_id=book.id, status="queued")
     db.add(conv)
     await db.commit()
     await db.refresh(book)
 
-    # Enfileira task Celery (passa o caminho do Supabase, não o local)
     task = convert_pdf_to_epub.apply_async(
-        args=[str(book.id), storage_path, sanitized_name],
+        args=[str(book.id), storage_path, sanitized_name, mode],
         task_id=str(uuid.uuid4()),
     )
 
-    # Salva task_id
     conv.task_id = task.id
     await db.commit()
 
-    logger.info("upload_queued", book_id=str(book.id), task_id=task.id)
+    logger.info("upload_queued", book_id=str(book.id), task_id=task.id, mode=mode)
 
     return UploadResponse(
         book_id=book.id,
         task_id=task.id,
-        message="PDF recebido e enfileirado para conversão",
+        message=f"PDF recebido e enfileirado (modo {mode})",
     )
+
+# limpa temp local
+    try:
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
+    except Exception:
+        pass

@@ -1,0 +1,16 @@
+═══════════════════════════════════════════════════════════
+  ATUALIZAÇÃO: Modos de conversão Fiel (imagem) e Texto
+═══════════════════════════════════════════════════════════
+
+Substitua estes 5 arquivos no GitHub (mesmo caminho):
+
+1. backend/app/services/pdf_processor.py    → SUBSTITUIR
+2. backend/app/services/epub_generator.py   → SUBSTITUIR
+3. backend/app/routers/upload.py            → SUBSTITUIR
+4. backend/app/workers/celery_app.py        → SUBSTITUIR
+5. frontend/src/components/upload/DropzoneUpload.tsx → SUBSTITUIR
+
+6. frontend/src/lib/api.ts → EDITAR só a função uploadPdf
+   (veja o arquivo api_patch.txt)
+
+Depois de subir tudo, Railway e Vercel fazem redeploy sozinhos.
