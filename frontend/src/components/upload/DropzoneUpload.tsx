@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
-import { Upload, FileText, AlertCircle, CheckCircle2, Loader2, Image, Type } from "lucide-react";
+import { Upload, FileText, AlertCircle, CheckCircle2, Loader2, Image, Type, BookOpen } from "lucide-react";
 import { cn, formatBytes } from "@/lib/utils";
 import { uploadPdf, type UploadResponse } from "@/lib/api";
 import { toast } from "sonner";
@@ -13,6 +13,13 @@ interface Props {
 
 type UploadState = "idle" | "uploading" | "queued" | "error";
 type Mode = "fiel" | "texto";
+
+function isDocx(file: File) {
+  return (
+    file.name.toLowerCase().endsWith(".docx") ||
+    file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  );
+}
 
 export function DropzoneUpload({ onSuccess }: Props) {
   const [state, setState] = useState<UploadState>("idle");
@@ -26,9 +33,10 @@ export function DropzoneUpload({ onSuccess }: Props) {
     setProgress(0);
     setErrorMsg("");
     try {
+      // Para DOCX o backend ignora "mode" (sempre gera no padrão Medcel)
       const resp = await uploadPdf(file, mode, (pct) => setProgress(pct));
       setState("queued");
-      toast.success("PDF enviado! Conversão iniciada.");
+      toast.success(isDocx(file) ? "DOCX enviado! Conversão iniciada." : "PDF enviado! Conversão iniciada.");
       onSuccess(resp);
     } catch (err: unknown) {
       const errAny = err as { response?: { data?: { detail?: { message?: string } | string } } };
@@ -52,7 +60,10 @@ export function DropzoneUpload({ onSuccess }: Props) {
 
   const { getRootProps, getInputProps, isDragActive, fileRejections } = useDropzone({
     onDrop,
-    accept: { "application/pdf": [".pdf"] },
+    accept: {
+      "application/pdf": [".pdf"],
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
+    },
     maxFiles: 1,
     maxSize: 100 * 1024 * 1024,
     disabled: state === "uploading" || state === "queued",
@@ -65,10 +76,12 @@ export function DropzoneUpload({ onSuccess }: Props) {
     setErrorMsg("");
   };
 
+  const showModeSelector = state === "idle" && (!selectedFile || !isDocx(selectedFile));
+
   return (
     <div className="w-full max-w-2xl mx-auto">
-      {/* Seletor de modo */}
-      {state === "idle" && (
+      {/* Seletor de modo — só faz sentido para PDF */}
+      {showModeSelector && (
         <div className="mb-4 grid grid-cols-2 gap-3">
           <button
             onClick={() => setMode("fiel")}
@@ -100,6 +113,16 @@ export function DropzoneUpload({ onSuccess }: Props) {
               <p className="text-xs text-slate-400 mt-0.5">Texto selecionável e ajustável. Layout livre.</p>
             </div>
           </button>
+        </div>
+      )}
+
+      {state === "idle" && selectedFile && isDocx(selectedFile) && (
+        <div className="mb-4 flex items-center gap-3 rounded-xl border border-brand-500 bg-brand-600/10 p-4">
+          <BookOpen className="h-5 w-5 text-brand-400" />
+          <div>
+            <p className="text-sm font-semibold text-white">Documento Word (padrão Medcel)</p>
+            <p className="text-xs text-slate-400 mt-0.5">Será gerado automaticamente no layout editorial Medcel.</p>
+          </div>
         </div>
       )}
 
@@ -140,7 +163,7 @@ export function DropzoneUpload({ onSuccess }: Props) {
 
         {state === "idle" && (
           <>
-            <p className="text-lg font-medium text-white mb-1">{isDragActive ? "Solte o PDF aqui" : "Arraste um PDF ou clique para selecionar"}</p>
+            <p className="text-lg font-medium text-white mb-1">{isDragActive ? "Solte o arquivo aqui" : "Arraste um PDF ou DOCX, ou clique para selecionar"}</p>
             <p className="text-sm text-slate-400">Suporta arquivos até 100MB</p>
           </>
         )}
@@ -156,7 +179,7 @@ export function DropzoneUpload({ onSuccess }: Props) {
         )}
         {state === "queued" && (
           <>
-            <p className="text-base font-medium text-emerald-400 mb-1">PDF recebido!</p>
+            <p className="text-base font-medium text-emerald-400 mb-1">Arquivo recebido!</p>
             <p className="text-sm text-slate-400">Conversão iniciada — acompanhe abaixo</p>
           </>
         )}
