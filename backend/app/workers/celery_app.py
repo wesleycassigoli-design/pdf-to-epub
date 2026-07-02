@@ -1,7 +1,8 @@
 """
 celery_app.py
-Configura o Celery e define a task de conversão PDF → EPUB.
-Suporta modo "fiel" (imagem) e "texto" (reflow).
+Configura o Celery e define as tasks de conversão.
+- convert_pdf_to_epub  → PDF, modo "fiel" (imagem) ou "texto" (reflow)
+- convert_docx_to_epub → DOCX, padrão Medcel
 """
 
 import os
@@ -159,6 +160,112 @@ def convert_pdf_to_epub(self, book_id: str, pdf_path: str, original_name: str, m
         db.close()
 
 
+@celery_app.task(bind=True, name="convert_docx_to_epub")
+def convert_docx_to_epub(self, book_id: str, docx_path: str, original_name: str) -> dict:
+    """Task: baixa DOCX do Supabase, processa e gera EPUB no padrão Medcel."""
+    from app.models.models import Book, Chapter, Conversion
+    from app.services.docx_processor import analyze_docx
+    from app.services.epub_generator_medcel import build_epub_medcel
+    from app.services.storage_service import get_epub_output_path, download_from_supabase
+
+    start_time = time.time()
+    log_lines = []
+
+    def log(msg: str):
+        log_lines.append(f"[{datetime.now(timezone.utc).isoformat()}] {msg}")
+        logger.info(msg, book_id=book_id)
+
+    db = _get_db_sync()
+
+    try:
+        book = db.query(Book).filter_by(id=book_id).first()
+        if not book:
+            raise ValueError(f"Book {book_id} não encontrado")
+
+        conv = db.query(Conversion).filter_by(book_id=book_id).first()
+        if conv:
+            conv.status = "running"
+            conv.started_at = datetime.now(timezone.utc)
+            conv.task_id = self.request.id
+            db.commit()
+
+        book.status = "processing"
+        db.commit()
+
+        self.update_state(state="PROGRESS", meta={"step": "downloading", "progress": 10})
+        log("Baixando DOCX do storage")
+
+        local_docx = os.path.join(settings.temp_dir, f"{book_id}_source.docx")
+        if not download_from_supabase(docx_path, local_docx):
+            raise FileNotFoundError(f"Não foi possível baixar o DOCX: {docx_path}")
+
+        log("Analisando DOCX (padrão Medcel)")
+        self.update_state(state="PROGRESS", meta={"step": "analyzing", "progress": 30})
+        structure = analyze_docx(local_docx, original_filename=original_name)
+
+        book.page_count = None
+        db.commit()
+        log(f"{len(structure.sections)} seções, {len(structure.images)} imagens, título: {structure.title}")
+
+        self.update_state(state="PROGRESS", meta={"step": "building_epub", "progress": 60})
+        log("Gerando EPUB no padrão Medcel")
+        full_epub_local = get_epub_output_path(book_id, f"{book_id}_full.epub")
+        os.makedirs(os.path.dirname(full_epub_local), exist_ok=True)
+        build_epub_medcel(structure, full_epub_local)
+
+        full_epub_url = await_upload(full_epub_local, f"epubs/{book_id}/full.epub")
+        book.full_epub = full_epub_url or full_epub_local
+        book.status = "done"
+        db.commit()
+
+        # Registra a estrutura como capítulo único (documento não é fatiado por capítulo no modo Medcel)
+        chapter = Chapter(
+            book_id=uuid.UUID(book_id),
+            title=structure.title,
+            chapter_number=1,
+            start_page=1,
+            end_page=1,
+            epub_file=full_epub_url or full_epub_local,
+        )
+        db.add(chapter)
+        db.commit()
+
+        duration_ms = int((time.time() - start_time) * 1000)
+        log(f"Concluído em {duration_ms}ms")
+
+        if conv:
+            conv.status = "done"
+            conv.finished_at = datetime.now(timezone.utc)
+            conv.duration_ms = duration_ms
+            conv.logs = "\n".join(log_lines)
+            db.commit()
+
+        _cleanup_temp(local_docx, None)
+        self.update_state(state="SUCCESS", meta={"step": "done", "progress": 100})
+        return {"status": "done", "book_id": book_id, "sections": len(structure.sections)}
+
+    except Exception as e:
+        logger.error("docx_conversion_failed", book_id=book_id, error=str(e), exc_info=True)
+        log(f"ERRO: {str(e)}")
+        try:
+            book = db.query(Book).filter_by(id=book_id).first()
+            if book:
+                book.status = "error"
+                book.error_message = str(e)
+                db.commit()
+            conv = db.query(Conversion).filter_by(book_id=book_id).first()
+            if conv:
+                conv.status = "error"
+                conv.finished_at = datetime.now(timezone.utc)
+                conv.logs = "\n".join(log_lines)
+                db.commit()
+        except Exception:
+            pass
+        raise
+    finally:
+        db.close()
+
+
 def await_upload(local_path: str, storage_path: str) -> str | None:
     import asyncio
     from app.services.storage_service import upload_to_supabase
@@ -172,12 +279,12 @@ def await_upload(local_path: str, storage_path: str) -> str | None:
         return None
 
 
-def _cleanup_temp(pdf_path: str, images_dir: str) -> None:
+def _cleanup_temp(source_path: str, images_dir: str | None) -> None:
     import shutil
     try:
-        if os.path.exists(pdf_path):
-            os.unlink(pdf_path)
-        if os.path.isdir(images_dir):
+        if os.path.exists(source_path):
+            os.unlink(source_path)
+        if images_dir and os.path.isdir(images_dir):
             shutil.rmtree(images_dir)
     except Exception as e:
         logger.warning("cleanup_failed", error=str(e))
