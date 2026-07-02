@@ -33,7 +33,6 @@ export function DropzoneUpload({ onSuccess }: Props) {
     setProgress(0);
     setErrorMsg("");
     try {
-      // Para DOCX o backend ignora "mode" (sempre gera no padrão Medcel)
       const resp = await uploadPdf(file, mode, (pct) => setProgress(pct));
       setState("queued");
       toast.success(isDocx(file) ? "DOCX enviado! Conversão iniciada." : "PDF enviado! Conversão iniciada.");
@@ -80,7 +79,6 @@ export function DropzoneUpload({ onSuccess }: Props) {
 
   return (
     <div className="w-full max-w-2xl mx-auto">
-      {/* Seletor de modo — só faz sentido para PDF */}
       {showModeSelector && (
         <div className="mb-4 grid grid-cols-2 gap-3">
           <button
