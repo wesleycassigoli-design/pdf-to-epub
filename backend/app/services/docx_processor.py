@@ -4,22 +4,31 @@ Processa arquivos .docx no padrão Medcel e monta estrutura para geração de EP
 
 IMPORTANTE — Track Changes:
 Arquivos .docx que passaram por revisão (nome contém "_edit_rev", "_rev" etc.)
-frequentemente têm texto marcado como inserido (<w:ins>) ou excluído (<w:del>)
-via "Controle de Alterações" do Word. A propriedade padrão `paragraph.text` do
-python-docx SÓ lê runs que são filhos diretos do parágrafo — texto dentro de
-<w:ins> fica aninhado mais fundo e é silenciosamente ignorado, causando perda
-de trechos inteiros de frases.
+frequentemente têm texto marcado como inserido (<w:ins>), excluído (<w:del>)
+ou MOVIDO (<w:moveFrom> / <w:moveTo>) via "Controle de Alterações" do Word.
+
+A propriedade padrão `paragraph.text` do python-docx SÓ lê runs que são filhos
+diretos do parágrafo — texto dentro de <w:ins> fica aninhado mais fundo e é
+silenciosamente ignorado, causando perda de trechos inteiros de frases.
+
+Além disso, quando um trecho é MOVIDO com controle de alterações ativo, o Word
+grava DUAS cópias do mesmo texto: uma na posição antiga (<w:moveFrom>, que deve
+ser IGNORADA — equivale a uma exclusão) e outra na posição nova (<w:moveTo>,
+que deve ser MANTIDA — equivale a uma inserção). Sem tratar isso, o texto
+movido aparece duplicado (uma vez na posição antiga, outra na nova).
 
 Este módulo faz a extração direta na árvore XML (via lxml/oxml), garantindo:
 - Texto inserido (w:ins) É incluído (pois já foi aceito visualmente no Word)
 - Texto excluído (w:del) NÃO é incluído (usa tag w:delText, diferente de w:t)
+- Texto na posição ANTIGA de um trecho movido (w:moveFrom) NÃO é incluído
+- Texto na posição NOVA de um trecho movido (w:moveTo) É incluído
 - Imagens em qualquer profundidade da árvore são detectadas
 - Formatação (negrito/itálico) e tamanho de fonte são lidos por run real
 
 Detecta por heurística:
 - Título do capítulo
-- Autores
-- Seções H2 (padrão: "1 INTRODUÇÃO", "2 FISIOPATOLOGIA" etc.)
+- Autores (suporta título+autores em linha única ou uma linha por autor)
+- Seções H2 (padrão: "1 INTRODUÇÃO" maiúsculo OU "1 Introdução" title case)
 - Seções H3
 - Parágrafos normais
 - Imagens com legendas (ordem: legenda -> imagem -> fonte)
@@ -96,6 +105,7 @@ BULLET_CHARS = ("▶", "▷", "•", "-", "–")
 # ─── Extração robusta de XML (aware de track changes) ────────────────────────
 
 W_DEL = qn("w:del")
+W_MOVEFROM = qn("w:moveFrom")
 W_INS = qn("w:ins")
 W_T = qn("w:t")
 W_R = qn("w:r")
@@ -141,12 +151,13 @@ def _run_props(r_element) -> dict:
 def _get_paragraph_runs(paragraph) -> list[dict]:
     """
     Retorna todos os runs de texto do parágrafo, incluindo os que estão dentro
-    de <w:ins> (inserções aceitas/pendentes) e excluindo os que estão dentro
-    de <w:del> (exclusões). Cada item: {text, bold, italic, size}.
+    de <w:ins> (inserções) e <w:moveTo> (posição nova de texto movido), e
+    excluindo os que estão dentro de <w:del> (exclusões) e <w:moveFrom>
+    (posição antiga de texto movido). Cada item: {text, bold, italic, size}.
     """
     runs = []
     for r in paragraph._p.findall(".//" + W_R):
-        if _is_inside_tag(r, W_DEL):
+        if _is_inside_tag(r, W_DEL) or _is_inside_tag(r, W_MOVEFROM):
             continue
         text = "".join(t.text or "" for t in r.findall(W_T))
         if not text:
@@ -243,7 +254,7 @@ def _extract_image_from_paragraph(paragraph, img_counter: list) -> DocxImage | N
         p_element.findall(".//" + qn("wp:anchor"))
     )
     for drawing in drawings:
-        if _is_inside_tag(drawing, W_DEL):
+        if _is_inside_tag(drawing, W_DEL) or _is_inside_tag(drawing, W_MOVEFROM):
             continue
         blip = drawing.find(".//" + qn("a:blip"))
         if blip is None:
