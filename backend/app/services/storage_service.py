@@ -11,6 +11,12 @@ import structlog
 logger = structlog.get_logger()
 settings = get_settings()
 
+ALLOWED_EXTENSIONS = {".pdf", ".docx"}
+
+# Magic bytes de cada tipo aceito
+PDF_MAGIC = b"%PDF"
+DOCX_MAGIC = b"PK"  # .docx é um arquivo ZIP
+
 
 def _get_supabase() -> Client | None:
     if settings.supabase_url and settings.supabase_service_key:
@@ -28,23 +34,26 @@ def _sanitize_filename(name: str) -> str:
     return safe[:200]  # limite de tamanho
 
 
-async def validate_and_save_upload(file: UploadFile) -> tuple[str, str, int]:
+async def validate_and_save_upload(file: UploadFile) -> tuple[str, str, int, str]:
     """
-    Valida o arquivo, salva temporariamente e retorna:
-    (temp_path, sanitized_name, file_size)
+    Valida o arquivo (PDF ou DOCX), salva temporariamente e retorna:
+    (temp_path, sanitized_name, file_size, file_type)
+    file_type: "pdf" ou "docx"
     """
-    # Validação de extensão
     original_name = file.filename or "unnamed.pdf"
     ext = Path(original_name).suffix.lower()
-    if ext != ".pdf":
+
+    if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=400,
-            detail={"code": "INVALID_FILE_TYPE", "message": "Apenas arquivos PDF são aceitos"}
+            detail={"code": "INVALID_FILE_TYPE", "message": "Apenas arquivos PDF ou DOCX são aceitos"}
         )
+
+    file_type = "pdf" if ext == ".pdf" else "docx"
 
     # Lê o arquivo em chunks para validar tamanho
     os.makedirs(settings.temp_dir, exist_ok=True)
-    temp_filename = f"{uuid.uuid4()}.pdf"
+    temp_filename = f"{uuid.uuid4()}{ext}"
     temp_path = os.path.join(settings.temp_dir, temp_filename)
 
     total_size = 0
@@ -62,19 +71,27 @@ async def validate_and_save_upload(file: UploadFile) -> tuple[str, str, int]:
                 )
             await out.write(chunk)
 
-    # Valida magic bytes (PDF começa com %PDF)
+    # Valida magic bytes de acordo com o tipo
     with open(temp_path, "rb") as f:
         header = f.read(4)
-    if header != b"%PDF":
+
+    if file_type == "pdf" and header != PDF_MAGIC:
         os.unlink(temp_path)
         raise HTTPException(
             status_code=400,
             detail={"code": "INVALID_PDF", "message": "O arquivo não é um PDF válido"}
         )
 
+    if file_type == "docx" and not header.startswith(DOCX_MAGIC):
+        os.unlink(temp_path)
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "INVALID_DOCX", "message": "O arquivo não é um DOCX válido"}
+        )
+
     sanitized_name = _sanitize_filename(original_name)
-    logger.info("upload_validated", filename=sanitized_name, size_bytes=total_size)
-    return temp_path, sanitized_name, total_size
+    logger.info("upload_validated", filename=sanitized_name, size_bytes=total_size, file_type=file_type)
+    return temp_path, sanitized_name, total_size, file_type
 
 
 async def upload_to_supabase(local_path: str, storage_path: str) -> str | None:
