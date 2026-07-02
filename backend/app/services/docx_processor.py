@@ -80,7 +80,11 @@ class DocxStructure:
 
 # ─── Padrões de detecção ─────────────────────────────────────────────────────
 
-H2_PATTERN = re.compile(r"^(\d+)\s+([A-ZÁÉÍÓÚÂÊÎÔÛÃÕÀÜÇ][A-ZÁÉÍÓÚÂÊÎÔÛÃÕÀÜÇ\s\-\/\(\)]{2,})$")
+# Aceita tanto "1 INTRODUÇÃO" (maiúsculo) quanto "1 Introdução" (title case) —
+# o padrão de formatação varia entre documentos, então não travamos em maiúsculo.
+H2_PATTERN = re.compile(
+    r"^(\d{1,2})\s+([A-ZÁÉÍÓÚÂÊÎÔÛÃÕÀÜÇ][A-Za-zÁÉÍÓÚÂÊÎÔÛÃÕÀÜÇáéíóúâêîôûãõàüç\s\-\/\(\)]{2,60})$"
+)
 H3_PATTERN = re.compile(r"^(\d+\.\d+)\s+\S+")
 AUTHOR_PATTERN = re.compile(r"[A-Z][a-záéíóú]+\s+[A-Z][a-záéíóú]+")
 ALERT_PATTERN = re.compile(r"^(ALERTA|PONTO DE PROVA|ATENÇÃO|IMPORTANTE|DICA|CUIDADO)[:\s]", re.IGNORECASE)
@@ -276,32 +280,42 @@ def analyze_docx(docx_path: str, original_filename: str = "") -> DocxStructure:
     img_counter = [0]
 
     # ── Passo 1: título e autores ──
+    # Título = primeira linha não vazia.
+    # Autores = todas as linhas curtas seguintes que parecem nome de pessoa
+    # (suporta tanto "Nome • Nome • Nome" em uma linha quanto uma linha por autor).
     title = ""
-    authors = ""
-    title_found = False
-    authors_found = False
-    start_idx = 0
+    author_lines: list[str] = []
+    idx = 0
+    n = len(paragraphs)
 
-    for idx, para in enumerate(paragraphs):
+    while idx < n:
+        text = _get_paragraph_text(paragraphs[idx]).strip()
+        idx += 1
+        if text:
+            title = text
+            break
+
+    while idx < n:
+        para = paragraphs[idx]
         text = _get_paragraph_text(para).strip()
         if not text:
+            idx += 1
             continue
 
-        if not title_found:
-            title = text
-            title_found = True
-            start_idx = idx + 1
+        runs = _get_paragraph_runs(para)
+        if _is_h2_candidate(text, runs):
+            break  # já é a primeira seção, não é mais linha de autor
+
+        looks_like_author = len(text) < 120 and ("•" in text or AUTHOR_PATTERN.search(text))
+        if looks_like_author:
+            author_lines.append(text)
+            idx += 1
             continue
 
-        if not authors_found:
-            if "•" in text or (AUTHOR_PATTERN.search(text) and len(text) < 300):
-                authors = text
-                authors_found = True
-                start_idx = idx + 1
-            else:
-                start_idx = idx
-                authors_found = True
-            break
+        break  # parágrafo de corpo normal — encerra a coleta de autores
+
+    authors = " • ".join(author_lines)
+    start_idx = idx
 
     logger.info("docx_header", title=title, authors=authors[:80] if authors else "")
 
