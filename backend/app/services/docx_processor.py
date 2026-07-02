@@ -4,31 +4,22 @@ Processa arquivos .docx no padrão Medcel e monta estrutura para geração de EP
 
 IMPORTANTE — Track Changes:
 Arquivos .docx que passaram por revisão (nome contém "_edit_rev", "_rev" etc.)
-frequentemente têm texto marcado como inserido (<w:ins>), excluído (<w:del>)
-ou MOVIDO (<w:moveFrom> / <w:moveTo>) via "Controle de Alterações" do Word.
-
-A propriedade padrão `paragraph.text` do python-docx SÓ lê runs que são filhos
-diretos do parágrafo — texto dentro de <w:ins> fica aninhado mais fundo e é
-silenciosamente ignorado, causando perda de trechos inteiros de frases.
-
-Além disso, quando um trecho é MOVIDO com controle de alterações ativo, o Word
-grava DUAS cópias do mesmo texto: uma na posição antiga (<w:moveFrom>, que deve
-ser IGNORADA — equivale a uma exclusão) e outra na posição nova (<w:moveTo>,
-que deve ser MANTIDA — equivale a uma inserção). Sem tratar isso, o texto
-movido aparece duplicado (uma vez na posição antiga, outra na nova).
+frequentemente têm texto marcado como inserido (<w:ins>) ou excluído (<w:del>)
+via "Controle de Alterações" do Word. A propriedade padrão `paragraph.text` do
+python-docx SÓ lê runs que são filhos diretos do parágrafo — texto dentro de
+<w:ins> fica aninhado mais fundo e é silenciosamente ignorado, causando perda
+de trechos inteiros de frases.
 
 Este módulo faz a extração direta na árvore XML (via lxml/oxml), garantindo:
 - Texto inserido (w:ins) É incluído (pois já foi aceito visualmente no Word)
 - Texto excluído (w:del) NÃO é incluído (usa tag w:delText, diferente de w:t)
-- Texto na posição ANTIGA de um trecho movido (w:moveFrom) NÃO é incluído
-- Texto na posição NOVA de um trecho movido (w:moveTo) É incluído
 - Imagens em qualquer profundidade da árvore são detectadas
 - Formatação (negrito/itálico) e tamanho de fonte são lidos por run real
 
 Detecta por heurística:
 - Título do capítulo
-- Autores (suporta título+autores em linha única ou uma linha por autor)
-- Seções H2 (padrão: "1 INTRODUÇÃO" maiúsculo OU "1 Introdução" title case)
+- Autores
+- Seções H2 (padrão: "1 INTRODUÇÃO", "2 FISIOPATOLOGIA" etc.)
 - Seções H3
 - Parágrafos normais
 - Imagens com legendas (ordem: legenda -> imagem -> fonte)
@@ -151,9 +142,8 @@ def _run_props(r_element) -> dict:
 def _get_paragraph_runs(paragraph) -> list[dict]:
     """
     Retorna todos os runs de texto do parágrafo, incluindo os que estão dentro
-    de <w:ins> (inserções) e <w:moveTo> (posição nova de texto movido), e
-    excluindo os que estão dentro de <w:del> (exclusões) e <w:moveFrom>
-    (posição antiga de texto movido). Cada item: {text, bold, italic, size}.
+    de <w:ins> (inserções aceitas/pendentes) e excluindo os que estão dentro
+    de <w:del> (exclusões). Cada item: {text, bold, italic, size}.
     """
     runs = []
     for r in paragraph._p.findall(".//" + W_R):
@@ -317,8 +307,12 @@ def analyze_docx(docx_path: str, original_filename: str = "") -> DocxStructure:
         if _is_h2_candidate(text, runs):
             break  # já é a primeira seção, não é mais linha de autor
 
-        looks_like_author = len(text) < 120 and ("•" in text or AUTHOR_PATTERN.search(text))
-        if looks_like_author:
+        # Qualquer linha curta nesta posição (entre o título e a primeira seção)
+        # é considerada autor. Não validamos "formato de nome" via regex aqui:
+        # tentativas anteriores com regex de nome falhavam em nomes com certos
+        # acentos (ex: "João" com ã) ou abreviações ("F."), cortando a lista de
+        # autores no meio. A própria posição no documento já garante que é autor.
+        if len(text) < 100:
             author_lines.append(text)
             idx += 1
             continue
