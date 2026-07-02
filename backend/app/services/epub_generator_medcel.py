@@ -243,8 +243,10 @@ def _build_chapter_xhtml(structure: DocxStructure) -> str:
     lines.append('</head>')
     lines.append('<body>')
 
-    # Cabeçalho
-    lines.append(f'<div class="capitulo">{_escape_xml(structure.title)}</div>')
+    # Cabeçalho — texto em CAIXA ALTA real (não confiamos só no CSS text-transform,
+    # pois alguns leitores de EPUB — ex: Google Play Books — ignoram essa propriedade
+    # e aplicam o tema próprio do app por cima da formatação original)
+    lines.append(f'<div class="capitulo">{_escape_xml(structure.title).upper()}</div>')
     if structure.authors:
         lines.append(f'<div class="nome_autor">{_escape_xml(structure.authors)}</div>')
     lines.append('<hr/>')
@@ -253,7 +255,7 @@ def _build_chapter_xhtml(structure: DocxStructure) -> str:
     for section in structure.sections:
         if section.title:
             section_id = f"sec{section.number:02d}"
-            lines.append(f'<h2 id="{section_id}">{_escape_xml(section.title)}</h2>')
+            lines.append(f'<h2 id="{section_id}">{_escape_xml(section.title).upper()}</h2>')
 
         for block in section.blocks:
             lines.append(_block_to_html(block))
@@ -317,7 +319,7 @@ def _make_nav_xhtml(title: str, sections: list[DocxSection]) -> str:
         if sec.title and sec.number > 0:
             sec_id = f"sec{sec.number:02d}"
             items.append(
-                f'<li><a href="Text/chapter.xhtml#{sec_id}">{_escape_xml(sec.title)}</a></li>'
+                f'<li><a href="Text/chapter.xhtml#{sec_id}">{_escape_xml(sec.title).upper()}</a></li>'
             )
 
     nav_items = "\n      ".join(items) if items else '<li><a href="Text/chapter.xhtml">Início</a></li>'
@@ -343,7 +345,7 @@ def _make_toc_ncx(book_id: str, title: str, sections: list[DocxSection]) -> str:
         if sec.title and sec.number > 0:
             sec_id = f"sec{sec.number:02d}"
             points.append(f"""  <navPoint id="nav{order}" playOrder="{order}">
-    <navLabel><text>{_escape_xml(sec.title)}</text></navLabel>
+    <navLabel><text>{_escape_xml(sec.title).upper()}</text></navLabel>
     <content src="Text/chapter.xhtml#{sec_id}"/>
   </navPoint>""")
             order += 1
