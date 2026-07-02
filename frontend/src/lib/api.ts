@@ -1,200 +1,104 @@
-"use client";
+import axios from "axios";
 
-import { useCallback, useState } from "react";
-import { useDropzone } from "react-dropzone";
-import { Upload, FileText, AlertCircle, CheckCircle2, Loader2, Image, Type, BookOpen } from "lucide-react";
-import { cn, formatBytes } from "@/lib/utils";
-import { uploadPdf, type UploadResponse } from "@/lib/api";
-import { toast } from "sonner";
+const api = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
+  timeout: 30_000,
+});
 
-interface Props {
-  onSuccess: (resp: UploadResponse) => void;
+export default api;
+
+// ─── Types ──────────────────────────────────────────────────────────────────
+
+export interface UploadResponse {
+  book_id: string;
+  task_id: string;
+  message: string;
 }
 
-type UploadState = "idle" | "uploading" | "queued" | "error";
-type Mode = "fiel" | "texto";
-
-function isDocx(file: File) {
-  return (
-    file.name.toLowerCase().endsWith(".docx") ||
-    file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-  );
+export interface BookListItem {
+  id: string;
+  original_name: string;
+  file_size_bytes: number | null;
+  page_count: number | null;
+  status: "pending" | "processing" | "done" | "error";
+  created_at: string;
+  chapters_count: number;
 }
 
-export function DropzoneUpload({ onSuccess }: Props) {
-  const [state, setState] = useState<UploadState>("idle");
-  const [progress, setProgress] = useState(0);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [errorMsg, setErrorMsg] = useState("");
-  const [mode, setMode] = useState<Mode>("fiel");
+export interface Chapter {
+  id: string;
+  book_id: string;
+  title: string;
+  chapter_number: number;
+  start_page: number | null;
+  end_page: number | null;
+  epub_file: string | null;
+  created_at: string;
+}
 
-  const handleUpload = useCallback(async (file: File) => {
-    setState("uploading");
-    setProgress(0);
-    setErrorMsg("");
-    try {
-      // Para DOCX o backend ignora "mode" (sempre gera no padrão Medcel)
-      const resp = await uploadPdf(file, mode, (pct) => setProgress(pct));
-      setState("queued");
-      toast.success(isDocx(file) ? "DOCX enviado! Conversão iniciada." : "PDF enviado! Conversão iniciada.");
-      onSuccess(resp);
-    } catch (err: unknown) {
-      const errAny = err as { response?: { data?: { detail?: { message?: string } | string } } };
-      const detail = errAny?.response?.data?.detail;
-      const msg =
-        (typeof detail === "object" && detail !== null ? detail.message : undefined) ||
-        (typeof detail === "string" ? detail : undefined) ||
-        "Falha no upload. Tente novamente.";
-      setErrorMsg(typeof msg === "string" ? msg : JSON.stringify(msg));
-      setState("error");
-      toast.error("Falha no upload");
-    }
-  }, [onSuccess, mode]);
+export interface BookDetail extends BookListItem {
+  filename: string;
+  original_pdf: string | null;
+  full_epub: string | null;
+  error_message: string | null;
+  updated_at: string;
+  chapters: Chapter[];
+}
 
-  const onDrop = useCallback((accepted: File[]) => {
-    if (accepted.length === 0) return;
-    const file = accepted[0];
-    setSelectedFile(file);
-    handleUpload(file);
-  }, [handleUpload]);
+export interface StatusResponse {
+  book_id: string;
+  book_status: string;
+  conversion_status: string | null;
+  task_id: string | null;
+  progress_message: string;
+  chapters_count: number;
+  full_epub_ready: boolean;
+}
 
-  const { getRootProps, getInputProps, isDragActive, fileRejections } = useDropzone({
-    onDrop,
-    accept: {
-      "application/pdf": [".pdf"],
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
+// ─── API calls ───────────────────────────────────────────────────────────────
+
+export const uploadPdf = async (
+  file: File,
+  mode: "fiel" | "texto",
+  onProgress?: (pct: number) => void,
+): Promise<UploadResponse> => {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("mode", mode);
+
+  const { data } = await api.post<UploadResponse>("/upload/", form, {
+    headers: { "Content-Type": "multipart/form-data" },
+    onUploadProgress: (e) => {
+      if (onProgress && e.total) {
+        onProgress(Math.round((e.loaded / e.total) * 100));
+      }
     },
-    maxFiles: 1,
-    maxSize: 100 * 1024 * 1024,
-    disabled: state === "uploading" || state === "queued",
   });
+  return data;
+};
 
-  const resetUpload = () => {
-    setState("idle");
-    setSelectedFile(null);
-    setProgress(0);
-    setErrorMsg("");
-  };
+export const fetchBooks = async (): Promise<BookListItem[]> => {
+  const { data } = await api.get<BookListItem[]>("/books");
+  return data;
+};
 
-  const showModeSelector = state === "idle" && (!selectedFile || !isDocx(selectedFile));
+export const fetchBook = async (id: string): Promise<BookDetail> => {
+  const { data } = await api.get<BookDetail>(`/books/${id}`);
+  return data;
+};
 
-  return (
-    <div className="w-full max-w-2xl mx-auto">
-      {/* Seletor de modo — só faz sentido para PDF */}
-      {showModeSelector && (
-        <div className="mb-4 grid grid-cols-2 gap-3">
-          <button
-            onClick={() => setMode("fiel")}
-            className={cn(
-              "flex items-start gap-3 rounded-xl border p-4 text-left transition-all",
-              mode === "fiel"
-                ? "border-brand-500 bg-brand-600/10"
-                : "border-surface-border bg-surface-card hover:border-brand-500/40"
-            )}
-          >
-            <Image className={cn("h-5 w-5 mt-0.5", mode === "fiel" ? "text-brand-400" : "text-slate-400")} />
-            <div>
-              <p className="text-sm font-semibold text-white">Modo Fiel</p>
-              <p className="text-xs text-slate-400 mt-0.5">Idêntico ao PDF. Preserva layout, cores e imagens.</p>
-            </div>
-          </button>
-          <button
-            onClick={() => setMode("texto")}
-            className={cn(
-              "flex items-start gap-3 rounded-xl border p-4 text-left transition-all",
-              mode === "texto"
-                ? "border-brand-500 bg-brand-600/10"
-                : "border-surface-border bg-surface-card hover:border-brand-500/40"
-            )}
-          >
-            <Type className={cn("h-5 w-5 mt-0.5", mode === "texto" ? "text-brand-400" : "text-slate-400")} />
-            <div>
-              <p className="text-sm font-semibold text-white">Modo Texto</p>
-              <p className="text-xs text-slate-400 mt-0.5">Texto selecionável e ajustável. Layout livre.</p>
-            </div>
-          </button>
-        </div>
-      )}
+export const fetchStatus = async (id: string): Promise<StatusResponse> => {
+  const { data } = await api.get<StatusResponse>(`/status/${id}`);
+  return data;
+};
 
-      {state === "idle" && selectedFile && isDocx(selectedFile) && (
-        <div className="mb-4 flex items-center gap-3 rounded-xl border border-brand-500 bg-brand-600/10 p-4">
-          <BookOpen className="h-5 w-5 text-brand-400" />
-          <div>
-            <p className="text-sm font-semibold text-white">Documento Word (padrão Medcel)</p>
-            <p className="text-xs text-slate-400 mt-0.5">Será gerado automaticamente no layout editorial Medcel.</p>
-          </div>
-        </div>
-      )}
+export const fetchChapters = async (bookId: string): Promise<Chapter[]> => {
+  const { data } = await api.get<Chapter[]>(`/chapters/${bookId}`);
+  return data;
+};
 
-      <div
-        {...getRootProps()}
-        className={cn(
-          "relative border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all duration-200",
-          isDragActive && "border-brand-500 bg-brand-600/10",
-          state === "idle" && !isDragActive && "border-surface-border hover:border-brand-500/50 hover:bg-surface-hover",
-          state === "uploading" && "border-brand-500/30 bg-brand-600/5 cursor-not-allowed",
-          state === "queued" && "border-emerald-500/50 bg-emerald-500/5 cursor-not-allowed",
-          state === "error" && "border-red-500/50 bg-red-500/5"
-        )}
-      >
-        <input {...getInputProps()} />
-        <div className="flex justify-center mb-4">
-          {state === "uploading" && (
-            <div className="h-14 w-14 rounded-full bg-brand-600/20 flex items-center justify-center">
-              <Loader2 className="h-6 w-6 text-brand-400 animate-spin" />
-            </div>
-          )}
-          {state === "queued" && (
-            <div className="h-14 w-14 rounded-full bg-emerald-500/20 flex items-center justify-center">
-              <CheckCircle2 className="h-6 w-6 text-emerald-400" />
-            </div>
-          )}
-          {state === "error" && (
-            <div className="h-14 w-14 rounded-full bg-red-500/20 flex items-center justify-center">
-              <AlertCircle className="h-6 w-6 text-red-400" />
-            </div>
-          )}
-          {state === "idle" && (
-            <div className={cn("h-14 w-14 rounded-full flex items-center justify-center transition-colors", isDragActive ? "bg-brand-600/30" : "bg-surface-border")}>
-              {selectedFile ? <FileText className="h-6 w-6 text-brand-400" /> : <Upload className={cn("h-6 w-6", isDragActive ? "text-brand-400" : "text-slate-400")} />}
-            </div>
-          )}
-        </div>
+export const getDownloadUrl = (bookId: string) =>
+  `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/download/${bookId}`;
 
-        {state === "idle" && (
-          <>
-            <p className="text-lg font-medium text-white mb-1">{isDragActive ? "Solte o arquivo aqui" : "Arraste um PDF ou DOCX, ou clique para selecionar"}</p>
-            <p className="text-sm text-slate-400">Suporta arquivos até 100MB</p>
-          </>
-        )}
-        {state === "uploading" && selectedFile && (
-          <>
-            <p className="text-base font-medium text-white mb-1">{selectedFile.name}</p>
-            <p className="text-sm text-slate-400 mb-4">{formatBytes(selectedFile.size)}</p>
-            <div className="w-full max-w-xs mx-auto h-1.5 bg-surface-border rounded-full overflow-hidden">
-              <div className="h-full bg-brand-500 rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
-            </div>
-            <p className="text-xs text-slate-500 mt-2">{progress}% enviado</p>
-          </>
-        )}
-        {state === "queued" && (
-          <>
-            <p className="text-base font-medium text-emerald-400 mb-1">Arquivo recebido!</p>
-            <p className="text-sm text-slate-400">Conversão iniciada — acompanhe abaixo</p>
-          </>
-        )}
-        {state === "error" && (
-          <>
-            <p className="text-base font-medium text-red-400 mb-1">Falha no upload</p>
-            <p className="text-sm text-slate-400 mb-3">{errorMsg}</p>
-            <button onClick={(e) => { e.stopPropagation(); resetUpload(); }} className="text-xs text-brand-400 hover:text-brand-300 underline">Tentar novamente</button>
-          </>
-        )}
-      </div>
-
-      {fileRejections.length > 0 && (
-        <p className="mt-2 text-xs text-red-400 text-center">{fileRejections[0].errors[0]?.message}</p>
-      )}
-    </div>
-  );
-}
+export const getChapterDownloadUrl = (bookId: string, chapterId: string) =>
+  `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/download/${bookId}/chapter/${chapterId}`;
