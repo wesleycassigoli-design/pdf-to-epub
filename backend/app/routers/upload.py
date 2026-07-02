@@ -7,7 +7,7 @@ from app.database import get_db
 from app.models.models import Book, Conversion
 from app.schemas.schemas import UploadResponse
 from app.services.storage_service import validate_and_save_upload, upload_to_supabase
-from app.workers.celery_app import convert_pdf_to_epub
+from app.workers.celery_app import convert_pdf_to_epub, convert_docx_to_epub
 from app.config import get_settings
 import structlog
 
@@ -19,18 +19,21 @@ settings = get_settings()
 @router.post("/", response_model=UploadResponse, status_code=202)
 async def upload_pdf(
     file: UploadFile = File(...),
-    mode: str = Form("fiel"),   # "fiel" (imagem) ou "texto" (reflow)
+    mode: str = Form("fiel"),   # "fiel" (imagem) ou "texto" (reflow) — ignorado para DOCX
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Recebe PDF, valida, salva no Supabase e enfileira conversão.
-    mode: "fiel" = imagem por página (idêntico ao PDF)
-          "texto" = texto reflow (selecionável)
+    Recebe PDF ou DOCX, valida, salva no Supabase e enfileira conversão.
+    PDF:
+      mode: "fiel" = imagem por página (idêntico ao PDF)
+            "texto" = texto reflow (selecionável)
+    DOCX:
+      sempre gerado no padrão Medcel (mode é ignorado)
     """
     if mode not in ("fiel", "texto"):
         mode = "fiel"
 
-    temp_path, sanitized_name, file_size = await validate_and_save_upload(file)
+    temp_path, sanitized_name, file_size, file_type = await validate_and_save_upload(file)
 
     book = Book(
         filename=sanitized_name,
@@ -41,7 +44,7 @@ async def upload_pdf(
     db.add(book)
     await db.flush()
 
-    storage_path = f"pdfs/{book.id}/{sanitized_name}"
+    storage_path = f"{file_type}s/{book.id}/{sanitized_name}"
     supabase_url = await upload_to_supabase(temp_path, storage_path)
     book.original_pdf = supabase_url or temp_path
 
@@ -50,23 +53,29 @@ async def upload_pdf(
     await db.commit()
     await db.refresh(book)
 
-    task = convert_pdf_to_epub.apply_async(
-        args=[str(book.id), storage_path, sanitized_name, mode],
-        task_id=str(uuid.uuid4()),
-    )
+    if file_type == "docx":
+        task = convert_docx_to_epub.apply_async(
+            args=[str(book.id), storage_path, sanitized_name],
+            task_id=str(uuid.uuid4()),
+        )
+    else:
+        task = convert_pdf_to_epub.apply_async(
+            args=[str(book.id), storage_path, sanitized_name, mode],
+            task_id=str(uuid.uuid4()),
+        )
 
     conv.task_id = task.id
     await db.commit()
 
-    logger.info("upload_queued", book_id=str(book.id), task_id=task.id, mode=mode)
+    logger.info("upload_queued", book_id=str(book.id), task_id=task.id, mode=mode, file_type=file_type)
 
     return UploadResponse(
         book_id=book.id,
         task_id=task.id,
-        message=f"PDF recebido e enfileirado (modo {mode})",
+        message=f"Arquivo {file_type.upper()} recebido e enfileirado" + (f" (modo {mode})" if file_type == "pdf" else ""),
     )
 
-# limpa temp local
+    # limpa temp local
     try:
         if os.path.exists(temp_path):
             os.unlink(temp_path)
