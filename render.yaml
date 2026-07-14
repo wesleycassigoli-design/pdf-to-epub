@@ -1,0 +1,31 @@
+services:
+  - name: pdf-to-epub-api
+    type: web
+    runtime: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: SUPABASE_STORAGE_BUCKET
+        value: pdf-epub-files
+      - key: MAX_UPLOAD_MB
+        value: "100"
+      - key: ALLOWED_EXTENSIONS
+        value: pdf
+      - key: CORS_ORIGINS
+        sync: false
+      - key: OUTPUT_DIR
+        value: /app/output
+      - key: TEMP_DIR
+        value: /tmp/pdfepub
