@@ -1,0 +1,53 @@
+version: "3.9"
+
+services:
+  # ─── Backend API ───────────────────────────────────────────────────────────
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      - APP_ENV=development
+    volumes:
+      - ./backend:/app
+      - epub_output:/app/output
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  # ─── PostgreSQL (local dev only; production usa Supabase) ──────────────────
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: pdfepub
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+
+  # ─── Frontend (dev) ────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    env_file: frontend/.env.local
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  pg_data:
+  epub_output:

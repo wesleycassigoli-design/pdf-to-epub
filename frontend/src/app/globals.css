@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Fontes carregadas via next/font em layout.tsx — sem @import redundante aqui */
+
+:root {
+  --radius: 0.5rem;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: #0b0d12;
+  color: #f1f5f9;
+}
+
+::selection {
+  background-color: rgba(201, 154, 79, 0.35);
+  color: #fff;
+}
+
+/* Scrollbar personalizada */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track { background: #12151c; }
+::-webkit-scrollbar-thumb { background: #1f2430; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #c99a4f; }
+
+/* Focus ring acessível */
+:focus-visible {
+  outline: 2px solid #c99a4f;
+  outline-offset: 2px;
+}

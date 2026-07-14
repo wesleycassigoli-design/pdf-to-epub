@@ -1,0 +1,42 @@
+# Env files
+.env
+.env.local
+!.env.example
+!.env.local.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+*.egg
+
+# Node
+node_modules/
+.next/
+out/
+.vercel/
+
+# Outputs e temporários
+/backend/output/
+/tmp/
+*.epub
+
+# Docker
+.dockerignore
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
