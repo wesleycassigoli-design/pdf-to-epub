@@ -73,7 +73,29 @@ async def upload_pdf(
 
     storage_path = f"{file_type}s/{book.id}/{sanitized_name}"
     supabase_url = await upload_to_supabase(temp_path, storage_path)
-    book.original_pdf = supabase_url or temp_path
+
+    if not supabase_url:
+        # Upload pro storage falhou (ex: Supabase indisponível, credencial inválida,
+        # cota). Sem isso, o book ficava "pending"/"processing" pra sempre e o erro
+        # só aparecia minutos depois, no download, como FileNotFoundError.
+        book.status = "error"
+        book.error_message = "Falha ao enviar arquivo para o storage"
+        await db.commit()
+        try:
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
+        except Exception:
+            pass
+        logger.error("upload_storage_failed", book_id=str(book.id), storage_path=storage_path)
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "code": "STORAGE_UPLOAD_FAILED",
+                "message": "Falha ao enviar arquivo para o storage. Tente novamente em instantes.",
+            },
+        )
+
+    book.original_pdf = supabase_url
 
     conv = Conversion(book_id=book.id, status="queued")
     db.add(conv)
@@ -96,14 +118,11 @@ async def upload_pdf(
 
     logger.info("upload_queued", book_id=str(book.id), task_id=task_id, mode=mode, file_type=file_type, template=template if file_type == "docx" else None)
 
-    # Só remove o staging local se o upload pro Supabase deu certo — caso contrário
-    # `book.original_pdf` aponta pro próprio temp_path como fallback (ver acima).
-    if supabase_url:
-        try:
-            if os.path.exists(temp_path):
-                os.unlink(temp_path)
-        except Exception:
-            pass
+    try:
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
+    except Exception:
+        pass
 
     return UploadResponse(
         book_id=book.id,

@@ -25,13 +25,31 @@ def _get_supabase() -> Client | None:
 
 
 def _sanitize_filename(name: str) -> str:
-    """Remove caracteres perigosos do nome do arquivo."""
+    """
+    Remove caracteres perigosos E não-ASCII do nome do arquivo.
+
+    Usado pra construir a CHAVE de objeto no Supabase Storage — que rejeita
+    com 400 "InvalidKey" qualquer chave com caractere não-ASCII (ex: "Í").
+    Sem isso, o upload falha silenciosamente (upload_to_supabase engole a
+    exceção e retorna None) e a conversão é enfileirada apontando pra um
+    arquivo que nunca existiu no storage, estourando "FileNotFoundError" só
+    minutos depois, no download.
+
+    Antes só filtrava com `\\w` do regex — Unicode-aware por padrão no Python
+    3, então acentos passavam batido apesar do nome da função. Corrigido
+    decompondo (NFKD) e descartando os diacríticos antes do filtro ASCII.
+    """
     import re
-    # Mantém apenas alfanuméricos, pontos, hífens e underscores
-    safe = re.sub(r"[^\w\-.]", "_", name)
+    import unicodedata
+    # NFKD decompõe "Í" em "I" + acento combinante separado; ao codificar em
+    # ASCII com errors="ignore", o acento (que não é ASCII) é descartado e
+    # sobra só o "I" — efetivamente removendo o diacrítico.
+    ascii_only = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
+    # Mantém apenas alfanuméricos ASCII, pontos, hífens e underscores
+    safe = re.sub(r"[^\w\-.]", "_", ascii_only, flags=re.ASCII)
     # Evita path traversal
     safe = Path(safe).name
-    return safe[:200]  # limite de tamanho
+    return safe[:200] or "arquivo"  # nunca deixa vazio (ex: nome só com CJK)
 
 
 async def validate_and_save_upload(file: UploadFile) -> tuple[str, str, int, str]:
