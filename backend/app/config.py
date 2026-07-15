@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     # ─── CORS ───────────────────────────────────────────────────────────────
     cors_origins: str = "http://localhost:3000"
 
+    # ─── Auth ───────────────────────────────────────────────────────────────
+    admin_email: str = ""  # e-mail que já nasce admin+aprovado ao se cadastrar
+    jwt_expires_minutes: int = 60 * 24  # 24h
+
     class Config:
         env_file = ".env"
         case_sensitive = False

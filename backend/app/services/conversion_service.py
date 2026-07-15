@@ -10,6 +10,7 @@ separado. Substitui as antigas tasks Celery.
 import asyncio
 import os
 import time
+import traceback
 import uuid
 from datetime import datetime, timezone
 from app.config import get_settings
@@ -24,6 +25,16 @@ def _fmt_log(msg: str) -> str:
     return f"[{datetime.now(timezone.utc).isoformat()}] {msg}"
 
 
+# ─── DEBUG TEMPORÁRIO — remover depois do diagnóstico ────────────────────────
+def _ts() -> str:
+    return datetime.now().strftime("%H:%M:%S.%f")[:-3]
+
+
+def _dbg(tag: str, msg: str) -> None:
+    print(f"[DEBUG {_ts()}] [{tag}] {msg}", flush=True)
+# ──────────────────────────────────────────────────────────────────────────
+
+
 async def _append_step(db, conv, step: str, msg: str) -> None:
     """Registra o passo atual em Conversion.logs (usado pelo /status para granularidade)."""
     line = f"{_fmt_log(msg)} [STEP] {step}"
@@ -33,6 +44,7 @@ async def _append_step(db, conv, step: str, msg: str) -> None:
 
 async def convert_pdf_to_epub(conversion_id: str, book_id: str, pdf_path: str, original_name: str, mode: str = "fiel") -> None:
     """Baixa PDF do Supabase, processa e gera EPUBs no modo escolhido."""
+    _dbg("convert_pdf_to_epub", f"INICIO book_id={book_id} mode={mode} original_name={original_name}")
     from app.models.models import Book, Chapter, Conversion
     from app.services.pdf_processor import analyze_pdf
     from app.services.epub_generator import build_epub, build_chapter_epub
@@ -106,6 +118,8 @@ async def convert_pdf_to_epub(conversion_id: str, book_id: str, pdf_path: str, o
             await asyncio.to_thread(_cleanup_temp, local_pdf, images_dir)
 
         except Exception as e:
+            _dbg("convert_pdf_to_epub", f"EXCEPTION capturada: {e!r}")
+            print(traceback.format_exc(), flush=True)
             logger.error("conversion_failed", book_id=book_id, error=str(e), exc_info=True)
             try:
                 book.status = "error"
@@ -114,6 +128,8 @@ async def convert_pdf_to_epub(conversion_id: str, book_id: str, pdf_path: str, o
                 conv.finished_at = datetime.now(timezone.utc)
                 await _append_step(db, conv, "error", f"ERRO: {str(e)}")
             except Exception:
+                _dbg("conversion_error_persist_failed", f"EXCEPTION ao persistir estado de erro, book_id={book_id}")
+                print(traceback.format_exc(), flush=True)
                 logger.error("conversion_error_persist_failed", book_id=book_id, exc_info=True)
 
 
@@ -129,6 +145,8 @@ async def convert_docx_to_epub(conversion_id: str, book_id: str, docx_path: str,
     from app.models.models import Book, Chapter, Conversion
     from app.services.storage_service import get_epub_output_path, download_from_supabase, upload_to_supabase
     from sqlalchemy import select
+
+    _dbg("convert_docx_to_epub", f"INICIO book_id={book_id} template={template} original_name={original_name}")
 
     if template == "medcel":
         from app.services.docx_processor import analyze_docx
@@ -147,6 +165,7 @@ async def convert_docx_to_epub(conversion_id: str, book_id: str, docx_path: str,
 
         if not book or not conv:
             logger.error("conversion_target_missing", book_id=book_id, conversion_id=conversion_id)
+            _dbg("convert_docx_to_epub", f"ABORTADO: book ou conversion nao encontrados no banco (book_id={book_id})")
             return
 
         try:
@@ -154,16 +173,21 @@ async def convert_docx_to_epub(conversion_id: str, book_id: str, docx_path: str,
             conv.started_at = datetime.now(timezone.utc)
             book.status = "processing"
             await db.commit()
+            _dbg("convert_docx_to_epub", "status=running/processing gravado no banco")
 
             await _append_step(db, conv, "downloading", "Baixando DOCX do storage")
             local_docx = os.path.join(settings.temp_dir, f"{book_id}_source.docx")
             os.makedirs(settings.temp_dir, exist_ok=True)
+            _dbg("download", f"INICIO download_from_supabase docx_path={docx_path} -> {local_docx}")
             ok = await asyncio.to_thread(download_from_supabase, docx_path, local_docx)
+            _dbg("download", f"FIM download_from_supabase ok={ok}")
             if not ok:
                 raise FileNotFoundError(f"Não foi possível baixar o DOCX: {docx_path}")
 
             await _append_step(db, conv, "analyzing", f"Analisando DOCX (template {template})")
+            _dbg("analyze", f"INICIO analyze_docx (template={template}) fn={analyze_docx.__module__}.{analyze_docx.__name__}")
             structure = await asyncio.to_thread(analyze_docx, local_docx, original_filename=original_name)
+            _dbg("analyze", f"FIM analyze_docx titulo={structure.title!r} secoes/blocos={len(getattr(structure, 'sections', getattr(structure, 'blocks', [])))} imagens={len(structure.images)}")
 
             book.page_count = None
             await db.commit()
@@ -171,12 +195,17 @@ async def convert_docx_to_epub(conversion_id: str, book_id: str, docx_path: str,
             await _append_step(db, conv, "building_epub", f"Gerando EPUB (template {template}), título: {structure.title}")
             full_epub_local = get_epub_output_path(book_id, f"{book_id}_full.epub")
             os.makedirs(os.path.dirname(full_epub_local), exist_ok=True)
+            _dbg("build_epub", f"INICIO build_epub_medcel -> {full_epub_local}")
             await asyncio.to_thread(build_epub_medcel, structure, full_epub_local)
+            _dbg("build_epub", f"FIM build_epub_medcel arquivo_existe={os.path.exists(full_epub_local)} tamanho={os.path.getsize(full_epub_local) if os.path.exists(full_epub_local) else 'N/A'}")
 
+            _dbg("upload", f"INICIO upload_to_supabase -> epubs/{book_id}/full.epub")
             full_epub_url = await upload_to_supabase(full_epub_local, f"epubs/{book_id}/full.epub")
+            _dbg("upload", f"FIM upload_to_supabase url={full_epub_url}")
             book.full_epub = full_epub_url or full_epub_local
             book.status = "done"
             await db.commit()
+            _dbg("convert_docx_to_epub", "status=done gravado no banco (full_epub)")
 
             # Registra a estrutura como capítulo único (documento não é fatiado por capítulo)
             chapter = Chapter(
@@ -189,6 +218,7 @@ async def convert_docx_to_epub(conversion_id: str, book_id: str, docx_path: str,
             )
             db.add(chapter)
             await db.commit()
+            _dbg("convert_docx_to_epub", "chapter registrado no banco")
 
             duration_ms = int((time.time() - start_time) * 1000)
             conv.status = "done"
@@ -196,9 +226,15 @@ async def convert_docx_to_epub(conversion_id: str, book_id: str, docx_path: str,
             conv.duration_ms = duration_ms
             await _append_step(db, conv, "done", f"Concluído em {duration_ms}ms")
 
+            _dbg("cleanup", f"INICIO cleanup local_docx={local_docx}")
             await asyncio.to_thread(_cleanup_temp, local_docx, None)
+            _dbg("cleanup", "FIM cleanup")
+
+            _dbg("convert_docx_to_epub", f"FIM (sucesso) book_id={book_id} duration_ms={duration_ms}")
 
         except Exception as e:
+            _dbg("convert_docx_to_epub", f"EXCEPTION capturada: {e!r}")
+            print(traceback.format_exc(), flush=True)
             logger.error("docx_conversion_failed", book_id=book_id, error=str(e), exc_info=True)
             try:
                 book.status = "error"
@@ -207,6 +243,8 @@ async def convert_docx_to_epub(conversion_id: str, book_id: str, docx_path: str,
                 conv.finished_at = datetime.now(timezone.utc)
                 await _append_step(db, conv, "error", f"ERRO: {str(e)}")
             except Exception:
+                _dbg("conversion_error_persist_failed", f"EXCEPTION ao persistir estado de erro, book_id={book_id}")
+                print(traceback.format_exc(), flush=True)
                 logger.error("conversion_error_persist_failed", book_id=book_id, exc_info=True)
 
 
@@ -218,4 +256,6 @@ def _cleanup_temp(source_path: str, images_dir: str | None) -> None:
         if images_dir and os.path.isdir(images_dir):
             shutil.rmtree(images_dir)
     except Exception as e:
+        _dbg("_cleanup_temp", f"EXCEPTION: {e!r}")
+        print(traceback.format_exc(), flush=True)
         logger.warning("cleanup_failed", error=str(e))

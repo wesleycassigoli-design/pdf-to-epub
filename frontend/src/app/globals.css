@@ -17,13 +17,13 @@ html {
 }
 
 body {
-  background-color: #0b0d12;
-  color: #f1f5f9;
+  background-color: #fbf9fd;
+  color: #333333;
 }
 
 ::selection {
-  background-color: rgba(201, 154, 79, 0.35);
-  color: #fff;
+  background-color: rgba(211, 28, 91, 0.25);
+  color: #333333;
 }
 
 /* Scrollbar personalizada */
@@ -31,12 +31,12 @@ body {
   width: 6px;
   height: 6px;
 }
-::-webkit-scrollbar-track { background: #12151c; }
-::-webkit-scrollbar-thumb { background: #1f2430; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #c99a4f; }
+::-webkit-scrollbar-track { background: #fbf9fd; }
+::-webkit-scrollbar-thumb { background: #DDDBDD; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #D31C5B; }
 
 /* Focus ring acessível */
 :focus-visible {
-  outline: 2px solid #c99a4f;
+  outline: 2px solid #D31C5B;
   outline-offset: 2px;
 }

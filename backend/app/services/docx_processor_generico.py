@@ -20,7 +20,9 @@ pois esse problema (perda ou duplicação de texto) pode acontecer em qualquer
 
 import re
 import base64
+import traceback
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 
 from docx import Document
@@ -28,6 +30,16 @@ from docx.oxml.ns import qn
 import structlog
 
 logger = structlog.get_logger()
+
+
+# ─── DEBUG TEMPORÁRIO — remover depois do diagnóstico ────────────────────────
+def _ts() -> str:
+    return datetime.now().strftime("%H:%M:%S.%f")[:-3]
+
+
+def _dbg(tag: str, msg: str) -> None:
+    print(f"[DEBUG {_ts()}] [docx_processor_generico:{tag}] {msg}", flush=True)
+# ──────────────────────────────────────────────────────────────────────────
 
 
 # ─── Estruturas de dados ──────────────────────────────────────────────────────
@@ -209,6 +221,8 @@ def _extract_image_from_paragraph(paragraph, img_counter: list) -> GenericImage 
                 media_type=ct,
             )
         except Exception as e:
+            _dbg("_extract_image_from_paragraph", f"EXCEPTION: {e!r}")
+            print(traceback.format_exc(), flush=True)
             logger.warning("generic_image_extraction_failed", error=str(e))
     return None
 
@@ -222,14 +236,18 @@ def analyze_docx_generico(docx_path: str, original_filename: str = "") -> Generi
     Estrutura = baseada nos estilos de heading reais do Word, se existirem;
     caso contrário, todo o conteúdo vira um capítulo único corrido.
     """
+    _dbg("analyze_docx_generico", f"INICIO docx_path={docx_path} original_filename={original_filename}")
     doc = Document(docx_path)
     filename = original_filename or Path(docx_path).name
+    _dbg("analyze_docx_generico", f"Document() carregado. paragraphs={len(doc.paragraphs)} tables={len(doc.tables)}")
 
     core_title = (doc.core_properties.title or "").strip()
+    _dbg("analyze_docx_generico", f"core_title={core_title!r}")
 
     # Agrupa parágrafos físicos fundindo os que tiveram a marca de fim deletada
     # via Track Changes (ver docx_processor.py::_merge_tracked_paragraphs).
     groups = _merge_tracked_paragraphs(doc.paragraphs)
+    _dbg("analyze_docx_generico", f"_merge_tracked_paragraphs OK -> {len(groups)} grupos logicos")
     blocks: list[GenericBlock] = []
     images_all: list[GenericImage] = []
     img_counter = [0]
@@ -237,7 +255,9 @@ def analyze_docx_generico(docx_path: str, original_filename: str = "") -> Generi
     title = core_title
     title_taken_from_body = False
 
-    for group in groups:
+    _dbg("analyze_docx_generico", f"iniciando loop principal, {len(groups)} grupos")
+    for _gi, group in enumerate(groups):
+        _dbg("analyze_docx_generico:loop", f"grupo {_gi + 1}/{len(groups)} (paras_fisicos={len(group)})")
         text_paras = []
         for p in group:
             img = _extract_image_from_paragraph(p, img_counter)
@@ -280,8 +300,13 @@ def analyze_docx_generico(docx_path: str, original_filename: str = "") -> Generi
 
         blocks.append(GenericBlock(block_type="paragraph", content=_runs_to_html(runs)))
 
-    for table in doc.tables:
+    _dbg("analyze_docx_generico", f"loop principal OK: blocks={len(blocks)} imagens={len(images_all)}")
+
+    _dbg("analyze_docx_generico", f"iniciando {len(doc.tables)} tabelas")
+    for _ti, table in enumerate(doc.tables):
+        _dbg("analyze_docx_generico:loop_tabelas", f"tabela {_ti + 1}/{len(doc.tables)} rows={len(table.rows)} cols={len(table.columns)}")
         blocks.append(GenericBlock(block_type="table", raw_html=_table_to_html(table)))
+    _dbg("analyze_docx_generico", "tabelas OK")
 
     if not title:
         title = filename.rsplit(".", 1)[0]
@@ -293,6 +318,7 @@ def analyze_docx_generico(docx_path: str, original_filename: str = "") -> Generi
         images=len(images_all),
     )
 
+    _dbg("analyze_docx_generico", f"FIM (sucesso) titulo={title!r}")
     return GenericStructure(
         title=title,
         blocks=blocks,
@@ -313,6 +339,7 @@ def paragraph_style_is_list(paragraph) -> bool:
 
 
 def _table_to_html(table) -> str:
+    _dbg("_table_to_html", f"INICIO rows={len(table.rows)}")
     rows_html = []
     for i, row in enumerate(table.rows):
         cells = []
@@ -321,4 +348,5 @@ def _table_to_html(table) -> str:
             tag = "th" if i == 0 else "td"
             cells.append(f"<{tag}>{text}</{tag}>")
         rows_html.append(f"<tr>{''.join(cells)}</tr>")
+    _dbg("_table_to_html", "FIM")
     return f'<table class="generic-table">{"".join(rows_html)}</table>'

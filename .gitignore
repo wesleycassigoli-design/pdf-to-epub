@@ -22,8 +22,10 @@ out/
 
 # Outputs e temporários
 /backend/output/
+/backend/tmp/
 /tmp/
 *.epub
+*.docx
 
 # Docker
 .dockerignore

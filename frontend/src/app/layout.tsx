@@ -1,18 +1,23 @@
 import type { Metadata } from "next";
-import { Inter, Fraunces, JetBrains_Mono } from "next/font/google";
+import { JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "@/components/layout/Providers";
 import { Toaster } from "sonner";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-
-// Serifada editorial para títulos — dá personalidade de "livro/publicação"
-// em vez de uma sans genérica em tudo.
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  variable: "--font-fraunces",
-  weight: ["500", "600"],
-  style: ["normal", "italic"],
+// Fonte de marca Afya (mesma família usada nos EPUBs gerados) — cobre sans e display.
+const afyaSans = localFont({
+  variable: "--font-afyasans",
+  src: [
+    { path: "../fonts/AfyaSans/AfyaSans-Light.ttf", weight: "300", style: "normal" },
+    { path: "../fonts/AfyaSans/AfyaSans-LightItalic.ttf", weight: "300", style: "italic" },
+    { path: "../fonts/AfyaSans/AfyaSans-Regular.ttf", weight: "400", style: "normal" },
+    { path: "../fonts/AfyaSans/AfyaSans-Italic.ttf", weight: "400", style: "italic" },
+    { path: "../fonts/AfyaSans/AfyaSans-Bold.ttf", weight: "700", style: "normal" },
+    { path: "../fonts/AfyaSans/AfyaSans-BoldItalic.ttf", weight: "700", style: "italic" },
+    { path: "../fonts/AfyaSans/AfyaSans-ExtraBold.ttf", weight: "800", style: "normal" },
+    { path: "../fonts/AfyaSans/AfyaSans-ExtraBoldItalic.ttf", weight: "800", style: "italic" },
+  ],
 });
 
 // Monoespaçada para dados técnicos: nome de arquivo, tamanho, progresso.
@@ -25,22 +30,23 @@ const jbmono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "PDF → EPUB3 | Conversor de Livros",
   description: "Converta PDFs em EPUB3 Fixed Layout com fidelidade total à diagramação original",
+  icons: { icon: "/logo-afya.svg" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className={`${inter.variable} ${fraunces.variable} ${jbmono.variable}`}>
-      <body className="bg-surface text-white antialiased min-h-screen font-sans">
+    <html lang="pt-BR" className={`${afyaSans.variable} ${jbmono.variable}`}>
+      <body className="bg-surface text-ink antialiased min-h-screen font-sans">
         <Providers>
           {children}
           <Toaster
-            theme="dark"
+            theme="light"
             position="bottom-right"
             toastOptions={{
               style: {
-                background: "#12151c",
-                border: "1px solid #1f2430",
-                color: "#fff",
+                background: "#ffffff",
+                border: "1px solid #DDDBDD",
+                color: "#333333",
               },
             }}
           />

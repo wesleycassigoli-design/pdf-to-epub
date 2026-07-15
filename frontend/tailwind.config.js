@@ -8,21 +8,25 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Dourado/latão — remete a marcação de página e lombada de livro,
-        // evita o azul genérico de SaaS.
-        "brand-400": "#e3bd7e",
-        "brand-500": "#c99a4f",
-        "brand-600": "#a67c35",
-        // Grafite com leve matiz azulado (não preto puro) — mais sofisticado
-        // do que #000/#0f1117 chapado.
-        "surface": "#0b0d12",
-        "surface-card": "#12151c",
-        "surface-border": "#1f2430",
-        "surface-hover": "#191d27",
+        // Paleta oficial Afya (educacaomedica.afya.com.br) — mesmo rosa já usado
+        // no CSS de marca dos EPUBs gerados.
+        "brand-400": "#E26B94",
+        "brand-500": "#D31C5B",
+        "brand-600": "#A91649",
+        "secondary": "#001d42",
+        "ink": "#333333",
+        "ink-border": "#DDDBDD",
+        "paper": "#fbf9fd",
+        // Tema claro — fundo off-white oficial da Afya, cards brancos,
+        // bordas e hover num cinza claro derivado da mesma paleta.
+        "surface": "#fbf9fd",
+        "surface-card": "#ffffff",
+        "surface-border": "#DDDBDD",
+        "surface-hover": "#F3F1F6",
       },
       fontFamily: {
-        sans: ["var(--font-inter)", "system-ui", "sans-serif"],
-        display: ["var(--font-fraunces)", "Georgia", "serif"],
+        sans: ["var(--font-afyasans)", "system-ui", "sans-serif"],
+        display: ["var(--font-afyasans)", "system-ui", "sans-serif"],
         mono: ["var(--font-jbmono)", "monospace"],
       },
     },

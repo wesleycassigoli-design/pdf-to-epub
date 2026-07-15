@@ -103,14 +103,14 @@ export function DropzoneUpload({ onSuccess }: Props) {
             className={cn(
               "flex items-start gap-3 rounded-xl border p-4 text-left transition-all",
               mode === "fiel"
-                ? "border-brand-500 bg-brand-600/10"
+                ? "border-brand-500 bg-brand-500/10"
                 : "border-surface-border bg-surface-card hover:border-brand-500/40"
             )}
           >
-            <Image className={cn("h-5 w-5 mt-0.5", mode === "fiel" ? "text-brand-400" : "text-slate-400")} />
+            <Image className={cn("h-5 w-5 mt-0.5", mode === "fiel" ? "text-brand-600" : "text-gray-400")} />
             <div>
-              <p className="text-sm font-semibold text-white">Modo Fiel</p>
-              <p className="text-xs text-slate-400 mt-0.5">Idêntico ao PDF. Preserva layout, cores e imagens.</p>
+              <p className="text-sm font-semibold text-ink">Modo Fiel</p>
+              <p className="text-xs text-gray-500 mt-0.5">Idêntico ao PDF. Preserva layout, cores e imagens.</p>
             </div>
           </button>
           <button
@@ -118,14 +118,14 @@ export function DropzoneUpload({ onSuccess }: Props) {
             className={cn(
               "flex items-start gap-3 rounded-xl border p-4 text-left transition-all",
               mode === "texto"
-                ? "border-brand-500 bg-brand-600/10"
+                ? "border-brand-500 bg-brand-500/10"
                 : "border-surface-border bg-surface-card hover:border-brand-500/40"
             )}
           >
-            <Type className={cn("h-5 w-5 mt-0.5", mode === "texto" ? "text-brand-400" : "text-slate-400")} />
+            <Type className={cn("h-5 w-5 mt-0.5", mode === "texto" ? "text-brand-600" : "text-gray-400")} />
             <div>
-              <p className="text-sm font-semibold text-white">Modo Texto</p>
-              <p className="text-xs text-slate-400 mt-0.5">Texto selecionável e ajustável. Layout livre.</p>
+              <p className="text-sm font-semibold text-ink">Modo Texto</p>
+              <p className="text-xs text-gray-500 mt-0.5">Texto selecionável e ajustável. Layout livre.</p>
             </div>
           </button>
         </div>
@@ -135,11 +135,11 @@ export function DropzoneUpload({ onSuccess }: Props) {
       {state === "awaiting_template" && selectedFile && (
         <div className="mb-4 rounded-xl border border-surface-border bg-surface-card p-4">
           <div className="flex items-center gap-2 mb-3">
-            <FileText className="h-4 w-4 text-brand-400" />
-            <p className="text-sm font-medium text-white truncate">{selectedFile.name}</p>
+            <FileText className="h-4 w-4 text-brand-600" />
+            <p className="text-sm font-medium text-ink truncate">{selectedFile.name}</p>
           </div>
 
-          <p className="text-xs text-slate-400 mb-3">Escolha o template editorial antes de enviar:</p>
+          <p className="text-xs text-gray-500 mb-3">Escolha o template editorial antes de enviar:</p>
 
           <div className="grid grid-cols-2 gap-3 mb-4">
             {TEMPLATES.map((t) => (
@@ -150,20 +150,20 @@ export function DropzoneUpload({ onSuccess }: Props) {
                 className={cn(
                   "relative flex flex-col items-start gap-1 rounded-xl border p-3.5 text-left transition-all",
                   !t.available && "opacity-50 cursor-not-allowed border-surface-border bg-surface",
-                  t.available && template === t.id && "border-brand-500 bg-brand-600/10",
+                  t.available && template === t.id && "border-brand-500 bg-brand-500/10",
                   t.available && template !== t.id && "border-surface-border bg-surface hover:border-brand-500/40"
                 )}
               >
                 {!t.available && (
-                  <span className="absolute top-2.5 right-2.5 flex items-center gap-1 text-[10px] font-mono uppercase text-slate-500">
+                  <span className="absolute top-2.5 right-2.5 flex items-center gap-1 text-[10px] font-mono uppercase text-gray-400">
                     <Lock className="h-3 w-3" /> Em breve
                   </span>
                 )}
                 <div className="flex items-center gap-2">
-                  <BookOpen className={cn("h-4 w-4", t.available && template === t.id ? "text-brand-400" : "text-slate-500")} />
-                  <p className="text-sm font-semibold text-white">{t.label}</p>
+                  <BookOpen className={cn("h-4 w-4", t.available && template === t.id ? "text-brand-600" : "text-gray-400")} />
+                  <p className="text-sm font-semibold text-ink">{t.label}</p>
                 </div>
-                <p className="text-xs text-slate-400">{t.desc}</p>
+                <p className="text-xs text-gray-500">{t.desc}</p>
               </button>
             ))}
           </div>
@@ -171,13 +171,13 @@ export function DropzoneUpload({ onSuccess }: Props) {
           <div className="flex gap-2">
             <button
               onClick={() => selectedFile && handleUpload(selectedFile, template)}
-              className="flex-1 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium py-2 transition-colors"
+              className="flex-1 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium py-2 transition-colors"
             >
               Enviar com template {TEMPLATES.find((t) => t.id === template)?.label}
             </button>
             <button
               onClick={resetUpload}
-              className="rounded-lg border border-surface-border text-slate-400 hover:text-white text-sm px-4 py-2 transition-colors"
+              className="rounded-lg border border-surface-border text-gray-500 hover:text-ink text-sm px-4 py-2 transition-colors"
             >
               Cancelar
             </button>
@@ -189,19 +189,19 @@ export function DropzoneUpload({ onSuccess }: Props) {
         {...getRootProps()}
         className={cn(
           "relative overflow-hidden border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all duration-200",
-          isDragActive && "border-brand-500 bg-brand-600/10",
+          isDragActive && "border-brand-500 bg-brand-500/10",
           state === "idle" && !isDragActive && "border-surface-border hover:border-brand-500/50 hover:bg-surface-hover",
           state === "awaiting_template" && "border-surface-border bg-surface-card/50 cursor-not-allowed opacity-60",
-          state === "uploading" && "border-brand-500/30 bg-brand-600/5 cursor-not-allowed",
-          state === "queued" && "border-emerald-500/50 bg-emerald-500/5 cursor-not-allowed",
-          state === "error" && "border-red-500/50 bg-red-500/5"
+          state === "uploading" && "border-brand-500/30 bg-brand-500/5 cursor-not-allowed",
+          state === "queued" && "border-emerald-400 bg-emerald-50 cursor-not-allowed",
+          state === "error" && "border-red-400 bg-red-50"
         )}
       >
         {/* Dobra de canto — referência a página de livro, grudada nesta caixa específica */}
         <div
           className="absolute top-0 right-0 w-7 h-7 pointer-events-none"
           style={{
-            background: "linear-gradient(135deg, #1f2430 50%, transparent 50%)",
+            background: "linear-gradient(135deg, #DDDBDD 50%, transparent 50%)",
             clipPath: "polygon(100% 0, 0 0, 100% 100%)",
             borderTopRightRadius: "1rem",
           }}
@@ -210,66 +210,66 @@ export function DropzoneUpload({ onSuccess }: Props) {
         <input {...getInputProps()} />
         <div className="flex justify-center mb-4">
           {state === "uploading" && (
-            <div className="h-14 w-14 rounded-full bg-brand-600/20 flex items-center justify-center">
-              <Loader2 className="h-6 w-6 text-brand-400 animate-spin" />
+            <div className="h-14 w-14 rounded-full bg-brand-500/20 flex items-center justify-center">
+              <Loader2 className="h-6 w-6 text-brand-600 animate-spin" />
             </div>
           )}
           {state === "queued" && (
-            <div className="h-14 w-14 rounded-full bg-emerald-500/20 flex items-center justify-center">
-              <CheckCircle2 className="h-6 w-6 text-emerald-400" />
+            <div className="h-14 w-14 rounded-full bg-emerald-100 flex items-center justify-center">
+              <CheckCircle2 className="h-6 w-6 text-emerald-600" />
             </div>
           )}
           {state === "error" && (
-            <div className="h-14 w-14 rounded-full bg-red-500/20 flex items-center justify-center">
-              <AlertCircle className="h-6 w-6 text-red-400" />
+            <div className="h-14 w-14 rounded-full bg-red-100 flex items-center justify-center">
+              <AlertCircle className="h-6 w-6 text-red-600" />
             </div>
           )}
           {(state === "idle" || state === "awaiting_template") && (
-            <div className={cn("h-14 w-14 rounded-full flex items-center justify-center transition-colors", isDragActive ? "bg-brand-600/30" : "bg-surface-border")}>
-              {selectedFile ? <FileText className="h-6 w-6 text-brand-400" /> : <Upload className={cn("h-6 w-6", isDragActive ? "text-brand-400" : "text-slate-400")} />}
+            <div className={cn("h-14 w-14 rounded-full flex items-center justify-center transition-colors", isDragActive ? "bg-brand-500/30" : "bg-surface-border")}>
+              {selectedFile ? <FileText className="h-6 w-6 text-brand-600" /> : <Upload className={cn("h-6 w-6", isDragActive ? "text-brand-600" : "text-gray-400")} />}
             </div>
           )}
         </div>
 
         {state === "idle" && (
           <>
-            <p className="text-lg font-medium text-white mb-1">{isDragActive ? "Solte o arquivo aqui" : "Arraste um PDF ou DOCX, ou clique para selecionar"}</p>
-            <p className="text-sm text-slate-400">Suporta arquivos até 100MB</p>
+            <p className="text-lg font-medium text-ink mb-1">{isDragActive ? "Solte o arquivo aqui" : "Arraste um PDF ou DOCX, ou clique para selecionar"}</p>
+            <p className="text-sm text-gray-500">Suporta arquivos até 100MB</p>
           </>
         )}
         {state === "awaiting_template" && (
           <>
-            <p className="text-base font-medium text-white mb-1">Escolha o template acima para continuar</p>
-            <p className="text-sm text-slate-400">O envio começa depois da confirmação</p>
+            <p className="text-base font-medium text-ink mb-1">Escolha o template acima para continuar</p>
+            <p className="text-sm text-gray-500">O envio começa depois da confirmação</p>
           </>
         )}
         {state === "uploading" && selectedFile && (
           <>
-            <p className="text-base font-medium text-white mb-1">{selectedFile.name}</p>
-            <p className="text-sm text-slate-400 mb-4">{formatBytes(selectedFile.size)}</p>
+            <p className="text-base font-medium text-ink mb-1">{selectedFile.name}</p>
+            <p className="text-sm text-gray-500 mb-4">{formatBytes(selectedFile.size)}</p>
             <div className="w-full max-w-xs mx-auto h-1.5 bg-surface-border rounded-full overflow-hidden">
               <div className="h-full bg-brand-500 rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
             </div>
-            <p className="text-xs text-slate-500 mt-2">{progress}% enviado</p>
+            <p className="text-xs text-gray-500 mt-2">{progress}% enviado</p>
           </>
         )}
         {state === "queued" && (
           <>
-            <p className="text-base font-medium text-emerald-400 mb-1">Arquivo recebido!</p>
-            <p className="text-sm text-slate-400">Conversão iniciada — acompanhe abaixo</p>
+            <p className="text-base font-medium text-emerald-700 mb-1">Arquivo recebido!</p>
+            <p className="text-sm text-gray-500">Conversão iniciada — acompanhe abaixo</p>
           </>
         )}
         {state === "error" && (
           <>
-            <p className="text-base font-medium text-red-400 mb-1">Falha no upload</p>
-            <p className="text-sm text-slate-400 mb-3">{errorMsg}</p>
-            <button onClick={(e) => { e.stopPropagation(); resetUpload(); }} className="text-xs text-brand-400 hover:text-brand-300 underline">Tentar novamente</button>
+            <p className="text-base font-medium text-red-700 mb-1">Falha no upload</p>
+            <p className="text-sm text-gray-500 mb-3">{errorMsg}</p>
+            <button onClick={(e) => { e.stopPropagation(); resetUpload(); }} className="text-xs text-brand-500 hover:text-brand-600 underline">Tentar novamente</button>
           </>
         )}
       </div>
 
       {fileRejections.length > 0 && (
-        <p className="mt-2 text-xs text-red-400 text-center">{fileRejections[0].errors[0]?.message}</p>
+        <p className="mt-2 text-xs text-red-600 text-center">{fileRejections[0].errors[0]?.message}</p>
       )}
     </div>
   );

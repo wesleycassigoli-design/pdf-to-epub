@@ -44,12 +44,28 @@ CREATE TABLE IF NOT EXISTS conversions (
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- ─── Tabela: users (login, cadastro, aprovação manual, LGPD) ────────────────
+CREATE TABLE IF NOT EXISTS users (
+    id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    full_name           VARCHAR(255) NOT NULL,
+    email               VARCHAR(255) NOT NULL,
+    password_hash       VARCHAR(255) NOT NULL,
+    status              VARCHAR(20) NOT NULL DEFAULT 'pending',
+                        -- pending | approved | revoked
+    is_admin            BOOLEAN NOT NULL DEFAULT false,
+    privacy_accepted_at TIMESTAMPTZ NOT NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_login_at       TIMESTAMPTZ
+);
+
 -- ─── Índices ────────────────────────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_books_status      ON books(status);
 CREATE INDEX IF NOT EXISTS idx_books_created_at  ON books(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_chapters_book_id  ON chapters(book_id);
 CREATE INDEX IF NOT EXISTS idx_conversions_book  ON conversions(book_id);
 CREATE INDEX IF NOT EXISTS idx_conversions_task  ON conversions(task_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(LOWER(email));
+CREATE INDEX IF NOT EXISTS idx_users_status       ON users(status);
 
 -- ─── Trigger: atualiza updated_at automaticamente ───────────────────────────
 CREATE OR REPLACE FUNCTION update_updated_at()

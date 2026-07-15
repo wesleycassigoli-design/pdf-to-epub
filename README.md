@@ -98,6 +98,9 @@ SUPABASE_STORAGE_BUCKET=pdf-epub-files
 
 # CORS (produção)
 CORS_ORIGINS=https://sua-app.vercel.app
+
+# Auth — e-mail que já nasce admin+aprovado ao se cadastrar (bootstrap)
+ADMIN_EMAIL=seu-email@afya.com.br
 ```
 
 ### Variáveis do Frontend (`frontend/.env.local`)
@@ -145,25 +148,31 @@ pdf-to-epub/
 ├── frontend/                    # Next.js app
 │   └── src/
 │       ├── app/                 # Rotas (App Router)
+│       │   ├── (auth)/          # Login/cadastro (sem Sidebar)
+│       │   ├── (dashboard)/     # Upload/histórico/detalhes/admin (protegido)
+│       │   └── privacidade/     # Política de Privacidade (pública)
 │       ├── components/          # Componentes React
-│       ├── hooks/               # Custom hooks
+│       ├── contexts/            # AuthContext (sessão/JWT)
+│       ├── hooks/                # Custom hooks
 │       └── lib/                 # API client, utils
 ├── backend/                     # FastAPI app
 │   └── app/
 │       ├── main.py              # Entry point
 │       ├── config.py            # Settings
 │       ├── database.py          # SQLAlchemy async
-│       ├── models/              # ORM models
+│       ├── dependencies.py      # Auth (get_current_user, require_admin, ...)
+│       ├── models/              # ORM models (Book, Chapter, Conversion, User)
 │       ├── schemas/             # Pydantic schemas
-│       ├── routers/             # Endpoints
+│       ├── routers/             # Endpoints (auth, admin, upload, books)
 │       └── services/            # Lógica de negócio
 │           ├── pdf_processor.py       # Análise PDF (PyMuPDF)
 │           ├── epub_generator.py      # Geração EPUB3
 │           ├── ocr_service.py         # Tesseract OCR
 │           ├── storage_service.py     # Upload Supabase
-│           └── conversion_service.py  # Conversão em background (BackgroundTasks)
+│           ├── conversion_service.py  # Conversão em background (BackgroundTasks)
+│           └── auth_service.py        # Hash de senha, JWT, rate limit do login
 ├── scripts/
-│   ├── init.sql                 # Schema PostgreSQL
+│   ├── init.sql                 # Schema PostgreSQL (inclui tabela users)
 │   └── setup.sh                 # Setup local
 ├── docker-compose.yml
 └── .env.example
@@ -173,9 +182,19 @@ pdf-to-epub/
 
 ## API Endpoints
 
+Todas as rotas abaixo, exceto `/auth/register`, `/auth/login` e `/health`, exigem
+`Authorization: Bearer <token>` de um usuário aprovado (ver [Autenticação](#autenticação-e-controle-de-acesso)).
+
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
-| `POST` | `/upload/` | Upload PDF + enfileira conversão |
+| `POST` | `/auth/register` | Cadastro (e-mail @afya.com.br, fica pendente de aprovação) |
+| `POST` | `/auth/login` | Login (só funciona com status "approved") |
+| `GET`  | `/auth/me` | Dados do usuário autenticado |
+| `GET`  | `/admin/users` | Lista usuários (admin) |
+| `POST` | `/admin/users/{id}/approve` | Aprova cadastro pendente (admin) |
+| `POST` | `/admin/users/{id}/revoke` | Revoga acesso (admin) |
+| `POST` | `/admin/users/{id}/promote` | Promove usuário a admin (admin) |
+| `POST` | `/upload/` | Upload PDF/DOCX + agenda conversão |
 | `GET`  | `/books` | Lista todos os livros |
 | `GET`  | `/books/{id}` | Detalhes do livro + capítulos |
 | `GET`  | `/status/{id}` | Status da conversão (para polling) |
@@ -184,6 +203,21 @@ pdf-to-epub/
 | `GET`  | `/download/{id}/chapter/{ch_id}` | Download EPUB do capítulo |
 | `GET`  | `/conversions/{id}` | Logs de conversão |
 | `GET`  | `/health` | Health check |
+
+---
+
+## Autenticação e controle de acesso
+
+- Cadastro exige e-mail `@afya.com.br` (validado no backend) e aceite da
+  [Política de Privacidade](frontend/src/app/privacidade/page.tsx) (LGPD).
+- Toda conta nasce com status `pending` — não consegue logar até um admin aprovar pelo painel
+  `/admin`, exceto o e-mail definido em `ADMIN_EMAIL`, que já nasce `approved` + admin.
+- Sessão via JWT (`PyJWT`, assinado com `SECRET_KEY`, 24h de validade) enviado como
+  `Authorization: Bearer` — guardado em `localStorage` no frontend (sem cookie, já que
+  frontend/backend ficam em domínios diferentes na Vercel/Render).
+- Revogação de acesso é imediata: a cada request, o backend confere o status atual no banco
+  (não confia só nas claims do token).
+- Senhas: hash `bcrypt`, nunca armazenadas em texto puro.
 
 ---
 

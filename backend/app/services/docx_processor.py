@@ -29,7 +29,9 @@ Detecta por heurística:
 
 import re
 import base64
+import traceback
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 
 from docx import Document
@@ -37,6 +39,16 @@ from docx.oxml.ns import qn
 import structlog
 
 logger = structlog.get_logger()
+
+
+# ─── DEBUG TEMPORÁRIO — remover depois do diagnóstico ────────────────────────
+def _ts() -> str:
+    return datetime.now().strftime("%H:%M:%S.%f")[:-3]
+
+
+def _dbg(tag: str, msg: str) -> None:
+    print(f"[DEBUG {_ts()}] [docx_processor:{tag}] {msg}", flush=True)
+# ──────────────────────────────────────────────────────────────────────────
 
 
 # ─── Estruturas de dados ──────────────────────────────────────────────────────
@@ -135,7 +147,8 @@ def _run_props(r_element) -> dict:
             try:
                 size = int(sz.get(W_VAL)) / 2  # meio-pontos -> pontos
             except ValueError:
-                pass
+                _dbg("_run_props", f"EXCEPTION (silenciosa antes) ao parsear w:sz val={sz.get(W_VAL)!r}")
+                print(traceback.format_exc(), flush=True)
     return {"bold": bold, "italic": italic, "size": size}
 
 
@@ -312,6 +325,8 @@ def _extract_image_from_paragraph(paragraph, img_counter: list) -> DocxImage | N
                 media_type=ct,
             )
         except Exception as e:
+            _dbg("_extract_image_from_paragraph", f"EXCEPTION: {e!r}")
+            print(traceback.format_exc(), flush=True)
             logger.warning("image_extraction_failed", error=str(e))
     return None
 
@@ -320,13 +335,16 @@ def _extract_image_from_paragraph(paragraph, img_counter: list) -> DocxImage | N
 
 def analyze_docx(docx_path: str, original_filename: str = "") -> DocxStructure:
     """Analisa o .docx e retorna DocxStructure no padrão Medcel."""
+    _dbg("analyze_docx", f"INICIO docx_path={docx_path} original_filename={original_filename}")
     doc = Document(docx_path)
     filename = original_filename or Path(docx_path).name
+    _dbg("analyze_docx", f"Document() carregado. paragraphs={len(doc.paragraphs)} tables={len(doc.tables)}")
 
     # Agrupa parágrafos físicos fundindo os que tiveram a marca de fim deletada
     # via Track Changes (ver _merge_tracked_paragraphs) — cada "group" abaixo é
     # um parágrafo lógico (pode conter 1 ou mais <w:p> físicos).
     groups = _merge_tracked_paragraphs(doc.paragraphs)
+    _dbg("analyze_docx", f"_merge_tracked_paragraphs OK -> {len(groups)} grupos logicos")
     images_all: list[DocxImage] = []
     img_counter = [0]
 
@@ -339,13 +357,16 @@ def analyze_docx(docx_path: str, original_filename: str = "") -> DocxStructure:
     idx = 0
     n = len(groups)
 
+    _dbg("analyze_docx", "Passo 1a: procurando titulo (primeira linha nao vazia)")
     while idx < n:
         text = _group_text(groups[idx]).strip()
         idx += 1
         if text:
             title = text
             break
+    _dbg("analyze_docx", f"Passo 1a OK: titulo={title!r} (parou em idx={idx}/{n})")
 
+    _dbg("analyze_docx", "Passo 1b: coletando linhas de autor")
     while idx < n:
         group = groups[idx]
         text = _group_text(group).strip()
@@ -381,7 +402,10 @@ def analyze_docx(docx_path: str, original_filename: str = "") -> DocxStructure:
     in_references = False
     pending_caption = ""
 
-    for group in groups[start_idx:]:
+    body_groups = groups[start_idx:]
+    _dbg("analyze_docx", f"Passo 2: iniciando loop do corpo, {len(body_groups)} grupos (start_idx={start_idx})")
+    for _gi, group in enumerate(body_groups):
+        _dbg("analyze_docx:loop_corpo", f"grupo {_gi + 1}/{len(body_groups)} (paras_fisicos={len(group)})")
         # Imagem — verifica por parágrafo físico do grupo ANTES do texto vazio
         # (parágrafo de imagem às vezes não tem nenhum texto). Parágrafos do
         # grupo que renderam imagem não contribuem texto (mesma regra de antes,
@@ -466,11 +490,16 @@ def analyze_docx(docx_path: str, original_filename: str = "") -> DocxStructure:
         if html_content.strip():
             current_section.blocks.append(DocxBlock(block_type="paragraph", content=html_content))
 
+    _dbg("analyze_docx", f"Passo 2 OK: loop do corpo terminou. secoes={len(sections)} imagens={len(images_all)} referencias={len(references)}")
+
     # Tabelas
-    for table in doc.tables:
+    _dbg("analyze_docx", f"Passo 3: iniciando {len(doc.tables)} tabelas")
+    for _ti, table in enumerate(doc.tables):
+        _dbg("analyze_docx:loop_tabelas", f"tabela {_ti + 1}/{len(doc.tables)} rows={len(table.rows)} cols={len(table.columns)}")
         html = _table_to_html(table)
         if sections:
             sections[-1].blocks.append(DocxBlock(block_type="table", raw_html=html))
+    _dbg("analyze_docx", "Passo 3 OK: tabelas processadas")
 
     logger.info(
         "docx_analysis_done",
@@ -480,6 +509,7 @@ def analyze_docx(docx_path: str, original_filename: str = "") -> DocxStructure:
         references=len(references),
     )
 
+    _dbg("analyze_docx", f"FIM (sucesso) titulo={title!r}")
     return DocxStructure(
         title=title,
         authors=authors,
@@ -491,6 +521,7 @@ def analyze_docx(docx_path: str, original_filename: str = "") -> DocxStructure:
 
 
 def _table_to_html(table) -> str:
+    _dbg("_table_to_html", f"INICIO rows={len(table.rows)}")
     rows_html = []
     for i, row in enumerate(table.rows):
         cells = []
@@ -499,4 +530,5 @@ def _table_to_html(table) -> str:
             tag = "th" if i == 0 else "td"
             cells.append(f"<{tag}>{text}</{tag}>")
         rows_html.append(f"<tr>{''.join(cells)}</tr>")
+    _dbg("_table_to_html", "FIM")
     return f'<table class="medcel-table">{"".join(rows_html)}</table>'

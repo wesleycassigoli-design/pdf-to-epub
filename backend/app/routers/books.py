@@ -6,9 +6,10 @@ from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from app.database import get_db
-from app.models.models import Book, Chapter, Conversion
+from app.models.models import Book, Chapter, Conversion, User
 from app.schemas.schemas import BookOut, BookListItem, ChapterOut, StatusResponse, ConversionOut
 from app.services.storage_service import download_from_supabase
+from app.dependencies import get_current_approved_user
 from app.config import get_settings
 import structlog
 
@@ -35,7 +36,12 @@ def _last_step(logs: str | None) -> str | None:
 
 # ─── GET /books ──────────────────────────────────────────────────────────────
 @router.get("/books", response_model=list[BookListItem])
-async def list_books(db: AsyncSession = Depends(get_db), limit: int = 20, offset: int = 0):
+async def list_books(
+    db: AsyncSession = Depends(get_db),
+    limit: int = 20,
+    offset: int = 0,
+    _user: User = Depends(get_current_approved_user),
+):
     result = await db.execute(
         select(Book).order_by(Book.created_at.desc()).limit(limit).offset(offset)
     )
@@ -57,7 +63,7 @@ async def list_books(db: AsyncSession = Depends(get_db), limit: int = 20, offset
 
 # ─── GET /books/{id} ─────────────────────────────────────────────────────────
 @router.get("/books/{book_id}", response_model=BookOut)
-async def get_book(book_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def get_book(book_id: uuid.UUID, db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_approved_user)):
     result = await db.execute(select(Book).where(Book.id == book_id))
     book = result.scalar_one_or_none()
     if not book:
@@ -86,7 +92,7 @@ async def get_book(book_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
 
 # ─── GET /status/{book_id} ───────────────────────────────────────────────────
 @router.get("/status/{book_id}", response_model=StatusResponse)
-async def get_status(book_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def get_status(book_id: uuid.UUID, db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_approved_user)):
     result = await db.execute(select(Book).where(Book.id == book_id))
     book = result.scalar_one_or_none()
     if not book:
@@ -122,7 +128,7 @@ async def get_status(book_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
 
 # ─── GET /chapters/{book_id} ─────────────────────────────────────────────────
 @router.get("/chapters/{book_id}", response_model=list[ChapterOut])
-async def list_chapters(book_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def list_chapters(book_id: uuid.UUID, db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_approved_user)):
     ch_result = await db.execute(
         select(Chapter).where(Chapter.book_id == book_id).order_by(Chapter.chapter_number)
     )
@@ -131,7 +137,7 @@ async def list_chapters(book_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
 
 # ─── GET /download/{book_id} ─────────────────────────────────────────────────
 @router.get("/download/{book_id}")
-async def download_full_epub(book_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def download_full_epub(book_id: uuid.UUID, db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_approved_user)):
     result = await db.execute(select(Book).where(Book.id == book_id))
     book = result.scalar_one_or_none()
     if not book:
@@ -154,7 +160,12 @@ async def download_full_epub(book_id: uuid.UUID, db: AsyncSession = Depends(get_
 
 # ─── GET /download/{book_id}/chapter/{chapter_id} ───────────────────────────
 @router.get("/download/{book_id}/chapter/{chapter_id}")
-async def download_chapter_epub(book_id: uuid.UUID, chapter_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def download_chapter_epub(
+    book_id: uuid.UUID,
+    chapter_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(get_current_approved_user),
+):
     result = await db.execute(select(Book).where(Book.id == book_id))
     book = result.scalar_one_or_none()
 
@@ -181,7 +192,7 @@ async def download_chapter_epub(book_id: uuid.UUID, chapter_id: uuid.UUID, db: A
 
 # ─── GET /conversions/{book_id} ──────────────────────────────────────────────
 @router.get("/conversions/{book_id}", response_model=list[ConversionOut])
-async def list_conversions(book_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def list_conversions(book_id: uuid.UUID, db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_approved_user)):
     result = await db.execute(
         select(Conversion).where(Conversion.book_id == book_id).order_by(Conversion.created_at.desc())
     )

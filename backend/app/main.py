@@ -6,15 +6,22 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.config import get_settings
 from app.database import create_tables
-from app.routers import upload, books
+from app.routers import upload, books, auth, admin
 
 settings = get_settings()
 logger = structlog.get_logger()
+
+_INSECURE_DEFAULT_SECRET = "change-me-in-production"
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    if settings.app_env == "production" and settings.secret_key == _INSECURE_DEFAULT_SECRET:
+        raise RuntimeError(
+            "SECRET_KEY ainda está com o valor padrão inseguro em produção — "
+            "defina uma chave aleatória longa antes de subir o serviço."
+        )
     os.makedirs(settings.output_dir, exist_ok=True)
     os.makedirs(settings.temp_dir, exist_ok=True)
     if settings.app_env == "development":
@@ -40,6 +47,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition"],
 )
 
 
@@ -54,6 +62,8 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 # ─── Routes ──────────────────────────────────────────────────────────────────
+app.include_router(auth.router)
+app.include_router(admin.router)
 app.include_router(upload.router)
 app.include_router(books.router)
 

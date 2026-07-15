@@ -30,8 +30,20 @@ export const STATUS_LABEL: Record<string, string> = {
 };
 
 export const STATUS_COLOR: Record<string, string> = {
-  pending:    "text-amber-400 bg-amber-400/10",
-  processing: "text-blue-400 bg-blue-400/10",
-  done:       "text-emerald-400 bg-emerald-400/10",
-  error:      "text-red-400 bg-red-400/10",
+  pending:    "text-amber-700 bg-amber-50",
+  processing: "text-blue-700 bg-blue-50",
+  done:       "text-emerald-700 bg-emerald-50",
+  error:      "text-red-700 bg-red-50",
+};
+
+export const USER_STATUS_LABEL: Record<string, string> = {
+  pending:  "Pendente",
+  approved: "Aprovado",
+  revoked:  "Revogado",
+};
+
+export const USER_STATUS_COLOR: Record<string, string> = {
+  pending:  "text-amber-700 bg-amber-50",
+  approved: "text-emerald-700 bg-emerald-50",
+  revoked:  "text-red-700 bg-red-50",
 };

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 # ─── Chapter ────────────────────────────────────────────────────────────────
@@ -84,3 +84,39 @@ class StatusResponse(BaseModel):
 # ─── Standard error ─────────────────────────────────────────────────────────
 class ErrorResponse(BaseModel):
     error: dict
+
+
+# ─── Auth ────────────────────────────────────────────────────────────────────
+class RegisterRequest(BaseModel):
+    full_name: str = Field(min_length=2, max_length=255)
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=72)
+    privacy_accepted: bool
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=1, max_length=72)
+
+
+class UserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    full_name: str
+    email: str
+    status: str
+    is_admin: bool
+    created_at: datetime
+    last_login_at: Optional[datetime]
+
+
+class RegisterResponse(BaseModel):
+    message: str
+    status: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserOut
