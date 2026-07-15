@@ -8,6 +8,7 @@ from app.models.models import Book, Conversion, User
 from app.schemas.schemas import UploadResponse
 from app.services.storage_service import validate_and_save_upload, upload_to_supabase
 from app.services.conversion_service import convert_pdf_to_epub, convert_docx_to_epub
+from app.services.watchdog_service import mark_stale_conversions_as_error
 from app.dependencies import get_current_approved_user
 from app.config import get_settings
 import structlog
@@ -36,6 +37,13 @@ async def upload_pdf(
       simples sem padrão fixo). Outros templates serão adicionados conforme
       surgirem novos padrões editoriais.
     """
+    # Watchdog: antes de aceitar um novo upload, resolve qualquer conversão
+    # anterior presa em "processing" há muito tempo — evita que fique travada
+    # pra sempre, independente da causa raiz do travamento.
+    stale_count = await mark_stale_conversions_as_error(db)
+    if stale_count:
+        logger.warning("stale_conversions_cleared", count=stale_count)
+
     if mode not in ("fiel", "texto"):
         mode = "fiel"
 
