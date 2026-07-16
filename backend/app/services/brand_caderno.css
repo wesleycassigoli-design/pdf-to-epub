@@ -1,0 +1,221 @@
+/* brand_caderno.css — folha de estilo própria do template "Caderno de Conceitos
+   Matadores". Baseada em FOLHA_DE_ESTILO_DC_2023.css do EPUB de referência,
+   sem depender do brand.css do Medcel. Isolada de propósito. */
+
+/* FONTES --------------------------------- */
+
+@font-face {
+font-family: "Montserrat-Light";
+src: url('../Fonts/Montserrat-Light.ttf');
+}
+
+@font-face {
+font-family: "Montserrat-LightItalic";
+src: url('../Fonts/Montserrat-LightItalic.ttf');
+}
+
+@font-face {
+font-family: "Montserrat-Regular";
+src: url('../Fonts/Montserrat-Regular.ttf');
+}
+
+@font-face {
+font-family: "Montserrat-Italic";
+src: url('../Fonts/Montserrat-Italic.ttf');
+}
+
+@font-face {
+font-family: "Montserrat-Bold";
+src: url('../Fonts/Montserrat-Bold.ttf');
+}
+
+@font-face {
+font-family: "Montserrat-BoldItalic";
+src: url('../Fonts/Montserrat-BoldItalic.ttf');
+}
+
+@font-face {
+font-family: "Montserrat-SemiBold";
+src: url('../Fonts/Montserrat-SemiBold.ttf');
+}
+
+@font-face {
+font-family: "Montserrat-SemiBoldItalic";
+src: url('../Fonts/Montserrat-SemiBoldItalic.ttf');
+}
+
+
+/* DESTAQUE --------------------------------- */
+
+.destaque {
+background-color: #f1f1f1;
+padding-top:10px;
+padding-bottom:1px;
+border: 1px solid #ccc;
+border-radius: 5px;
+padding-left: 1em;
+padding-right: 1em;
+color: #384d7a;
+font-family: "Montserrat-SemiBold";
+}
+
+
+/* TOPO --------------------------------- */
+
+.caderno {
+text-align: left;
+margin-bottom: 10px;
+margin-top: 00px;
+font-size: 13px;
+color: #727176;
+font-family: "Montserrat-Regular";
+}
+
+
+.capitulo {
+text-align: left;
+margin-bottom: 10px;
+margin-top: 0px;
+font-size: 25px;
+color: #203666;
+font-family: "Montserrat-Bold";
+}
+
+
+.titulo {
+text-align: left;
+margin-bottom: 10px;
+margin-top: 0px;
+font-size: 15px;
+color: #727176;
+font-family: "Montserrat-Regular";
+}
+
+
+/* TEXTO --------------------------------- */
+
+h1 {
+font-family: "Montserrat-SemiBold";
+color: #D31C5B;
+text-align: right;
+}
+
+h2, h4, h5, h6 {
+font-family: "Montserrat-Light";
+}
+
+h3 {
+font-family: "Montserrat-Bold";
+}
+
+h2 {
+color: #384d7a;
+}
+
+h3 {
+color: #000000;
+}
+
+h4, h5, h6 {
+color: #363A3D;
+}
+
+h6 {
+text-align: right;
+margin-bottom: 10px;
+margin-top: 00px;
+}
+
+h7 {
+font-family: "Montserrat-SemiBold";
+color: #D31C5B;
+text-align: right;
+list-style: none;
+text-decoration: none;
+}
+
+b {
+color: #363A3D;
+font-family: "Montserrat-SemiBold";
+}
+
+l {
+font-size: 10px;
+font-family: "Montserrat-Light";
+}
+
+b2 {
+color: #384d7a;
+font-family: "Montserrat-Bold";
+}
+
+b4 {
+color: #57585A;
+font-family: "Montserrat-Bold";
+}
+
+p {
+color: #363A3D;
+font-family: "Montserrat-Regular";
+line-height: 160%;
+}
+
+
+.pag {
+color: #363A3D;
+font-family: "Montserrat-Regular";
+line-height: 160%;
+margin-top: 15px;
+margin-bottom: 15px;
+}
+
+ol {
+color: #363A3D;
+font-family: "Montserrat-Regular";
+list-style-type: none;
+line-height: 130%;
+}
+
+li {
+color: #363A3D;
+font-family: "Montserrat-Regular";
+list-style-type: none;
+margin-left: -35px;
+line-height: 130%;
+}
+
+
+/* IMAGEM --------------------------------- */
+
+.imagem img {
+width: 95%;
+display: block;
+margin-left: auto;
+margin-right: auto;
+}
+
+
+/* ICONE ---------------------------------- */
+
+.icone img {
+  float: left;
+  margin-right: 5px;
+}
+
+
+/* LINHA DIVISÓRIA ----------------------- */
+
+hr {
+border: 0;
+height: 2px;
+background-image: linear-gradient(to right, transparent, #CCC, transparent);
+}
+
+.hrplaylist {
+border: 0;
+height: 3px;
+background-image: linear-gradient(to right, #ccc, transparent);
+margin-top: 10px;
+margin-bottom: 20px;
+width: 50%;
+}

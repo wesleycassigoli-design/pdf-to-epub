@@ -47,7 +47,7 @@ async def upload_pdf(
     if mode not in ("fiel", "texto"):
         mode = "fiel"
 
-    SUPPORTED_DOCX_TEMPLATES = ("medcel", "generico")  # adicionar novos templates aqui conforme forem implementados
+    SUPPORTED_DOCX_TEMPLATES = ("medcel", "generico", "caderno_conceitos_matadores")  # adicionar novos templates aqui conforme forem implementados
 
     temp_path, sanitized_name, file_size, file_type = await validate_and_save_upload(file)
 

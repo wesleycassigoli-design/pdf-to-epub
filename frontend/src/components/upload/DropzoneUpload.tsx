@@ -15,11 +15,12 @@ interface Props {
 // antes de enviar de fato — evita processar no padrão errado.
 type UploadState = "idle" | "awaiting_template" | "uploading" | "queued" | "error";
 type Mode = "fiel" | "texto";
-type Template = "medcel" | "generico";
+type Template = "medcel" | "generico" | "caderno_conceitos_matadores";
 
 const TEMPLATES: { id: Template; label: string; desc: string; available: boolean }[] = [
   { id: "medcel", label: "Medcel", desc: "Padrão editorial Medcel: seções numeradas, figuras e referências.", available: true },
   { id: "generico", label: "Genérico", desc: "Conversão simples: título, parágrafos e imagens, sem padrão fixo.", available: true },
+  { id: "caderno_conceitos_matadores", label: "Caderno de Conceitos Matadores", desc: "Cadernos de revisão: destaques de conceito matador, listas com marcadores e capítulos numerados.", available: true },
 ];
 
 function isDocx(file: File) {

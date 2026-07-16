@@ -154,6 +154,9 @@ async def convert_docx_to_epub(conversion_id: str, book_id: str, docx_path: str,
     elif template == "generico":
         from app.services.docx_processor_generico import analyze_docx_generico as analyze_docx
         from app.services.epub_generator_generico import build_epub_generico as build_epub_medcel
+    elif template == "caderno_conceitos_matadores":
+        from app.services.docx_processor_caderno import analyze_docx_caderno as analyze_docx
+        from app.services.epub_generator_caderno import build_epub_caderno as build_epub_medcel
     else:
         raise ValueError(f"Template DOCX não suportado: {template}")
 
@@ -198,6 +201,9 @@ async def convert_docx_to_epub(conversion_id: str, book_id: str, docx_path: str,
             _dbg("build_epub", f"INICIO build_epub_medcel -> {full_epub_local}")
             await asyncio.to_thread(build_epub_medcel, structure, full_epub_local)
             _dbg("build_epub", f"FIM build_epub_medcel arquivo_existe={os.path.exists(full_epub_local)} tamanho={os.path.getsize(full_epub_local) if os.path.exists(full_epub_local) else 'N/A'}")
+
+            await asyncio.to_thread(_validate_epub_zip, full_epub_local)
+            _dbg("validate_epub", "OK: zip valido e content.opf legivel")
 
             _dbg("upload", f"INICIO upload_to_supabase -> epubs/{book_id}/full.epub")
             full_epub_url = await upload_to_supabase(full_epub_local, f"epubs/{book_id}/full.epub")
@@ -246,6 +252,29 @@ async def convert_docx_to_epub(conversion_id: str, book_id: str, docx_path: str,
                 _dbg("conversion_error_persist_failed", f"EXCEPTION ao persistir estado de erro, book_id={book_id}")
                 print(traceback.format_exc(), flush=True)
                 logger.error("conversion_error_persist_failed", book_id=book_id, exc_info=True)
+
+
+def _validate_epub_zip(path: str) -> None:
+    """
+    Blindagem: garante que o .epub gerado é um zip válido com content.opf
+    legível antes de seguir pro upload/status=done. Vale para os 3 templates
+    DOCX (medcel/generico/caderno), já que é chamada uma única vez no fluxo
+    compartilhado de convert_docx_to_epub, logo após build_epub_medcel.
+    """
+    import zipfile
+    if not zipfile.is_zipfile(path):
+        raise ValueError(f"EPUB gerado não é um zip válido: {path}")
+    with zipfile.ZipFile(path) as zf:
+        bad = zf.testzip()
+        if bad is not None:
+            raise ValueError(f"EPUB corrompido (CRC inválido) em {bad!r}: {path}")
+        opf_candidates = [n for n in zf.namelist() if n.endswith("content.opf")]
+        if not opf_candidates:
+            raise ValueError(f"EPUB sem content.opf: {path}")
+        try:
+            zf.read(opf_candidates[0])
+        except Exception as e:
+            raise ValueError(f"content.opf ilegível no EPUB gerado: {e}")
 
 
 def _cleanup_temp(source_path: str, images_dir: str | None) -> None:

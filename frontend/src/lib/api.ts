@@ -124,7 +124,7 @@ export const uploadPdf = async (
   file: File,
   mode: "fiel" | "texto",
   onProgress?: (pct: number) => void,
-  template?: "medcel" | "generico",
+  template?: "medcel" | "generico" | "caderno_conceitos_matadores",
 ): Promise<UploadResponse> => {
   const form = new FormData();
   form.append("file", file);
