@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Upload, History, ShieldCheck, LogOut } from "lucide-react";
+import { Upload, History, ShieldCheck, LogOut, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -24,6 +24,14 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-1">
+        <Link
+          href="/apps"
+          className="flex items-center gap-3 px-3 py-2 mb-2 rounded-lg text-sm text-gray-500 hover:text-ink hover:bg-surface-hover transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4 flex-shrink-0" />
+          Aplicativos
+        </Link>
+
         {navItems.map(({ href, icon: Icon, label }) => (
           <Link
             key={href}

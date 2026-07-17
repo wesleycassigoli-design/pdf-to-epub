@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Geradores de Thumbs — Afya</title>
+<style>
+  :root{
+    --primary:#ce0058; --support-blue:#0057b8; --support-gray:#eeeeee;
+    --text:#2a2a2a; --muted:#767676; --line:#dddddd;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; background:#fafafa; color:var(--text);
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    display:flex; align-items:center; justify-content:center;
+    padding:24px;
+  }
+  .wrap{ width:100%; max-width:640px; }
+  .logo{ margin-bottom:4px; }
+  .logo img{ height:34px; display:block; }
+  .subtitle{ font-size:14px; color:var(--muted); margin-bottom:32px; }
+  .cards{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:560px){ .cards{ grid-template-columns:1fr; } }
+  a.card{
+    display:block; text-decoration:none; color:inherit;
+    background:#fff; border:1px solid var(--line); border-radius:14px;
+    padding:24px; transition:transform .12s, box-shadow .12s;
+  }
+  a.card:hover{ transform:translateY(-2px); box-shadow:0 10px 24px rgba(0,0,0,.08); border-color:var(--primary); }
+  .card-tag{
+    display:inline-block; font-size:11px; font-weight:700; color:#fff;
+    padding:3px 10px; border-radius:20px; margin-bottom:14px;
+  }
+  .tag-marcas{ background:var(--primary); }
+  .tag-posgrad{ background:var(--support-blue); }
+  .card-title{ font-size:17px; font-weight:700; margin-bottom:6px; }
+  .card-desc{ font-size:13px; color:var(--muted); line-height:1.45; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="logo"><img src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyBpZD0iTGF5ZXJfMSIgZGF0YS1uYW1lPSJMYXllciAxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA3MjcuMDMgNDM0LjciPgogIDxkZWZzPgogICAgPHN0eWxlPgogICAgICAuY2xzLTEgewogICAgICAgIGZpbGw6ICNjZTAwNTg7CiAgICAgIH0KICAgIDwvc3R5bGU+CiAgPC9kZWZzPgogIDxnIGlkPSJDYW1hZGFfMTIiPgogICAgPGcgaWQ9Il8yNDYzMDA5MDE1MDcyMiIgZGF0YS1uYW1lPSIgMjQ2MzAwOTAxNTA3MjIiPgogICAgICA8cGF0aCBjbGFzcz0iY2xzLTEiIGQ9Ik00MzYuNTMsMjg3LjljLTcuNCwxNC44LTE2LjksMTYuNy0yOSwxNi43aC0yLjNjLTIuNywwLTUuMSwxLjQtNi4zLDMuOWwtNi44LDEzLjFoMThjMzIuOSwwLDM4LjktMTIsNTAuOC0zNS42bDYxLjMtMTIyaC0xNC44Yy01LjQsMC0xMC4zLDMuMy0xMi45LDguNmwtMzguMSw3NS45LTI0LjMtODQuNWgtMjIuOWwzMC40LDEwNS42YzEuNSw1LjMsMSwxMC4zLTEuNCwxNS4ybC0xLjUsMy4xaC0uMloiLz4KICAgICAgPHBhdGggY2xhc3M9ImNscy0xIiBkPSJNNDAzLjAzLDE2NGgtMzAuMWwxLjktMTIuNmMxLjUtMTAuNCw3LjgtMjEuMywxOS42LTIxLjNoMTEuMWMyLjgsMCw1LjEtMS41LDYuNC0zLjlsNi42LTEzLjFoLTIzLjFjLTI2LjQsMC0zOS44LDEzLTQzLjYsMzcuOWwtMiwxM2gtMTguMmwtOC4xLDE2LjJoMjQuM2wtMTMuMSw5NGgyMi45bDEzLjEtOTRoMjQuMmw4LjEtMTYuMmgwWiIvPgogICAgICA8cGF0aCBjbGFzcz0iY2xzLTEiIGQ9Ik0xMzIuNDMsMjkyLjRjMTQuNywwLDI0LjItMi4yLDM3LjctMTIuOGw1Ni4xLTQwLjJjMTAuNS03LjUsMTcuNS05LjQsMjQuOC05LjUsNS4yLjEsOS4yLDIuMywxMi4yLDYuOGwxNy45LDI3YzYuNSw5LjgsMTIuMywxMC4zLDIwLjMsMTAuM2gxNy4xbC00Ni4zLTE2MC45aC0xNy43Yy04LjIsMC0xMy4zLDMuNC0xOC4xLDkuNy0zMiw0Mi40LTEyNy45LDE2OS42LTEyNy45LDE2OS42aDIzLjlaTTI0Ny4xMywyMTguOGMtMTAuNy0uMS0yMS4zLDQuMy0zMC4zLDkuOGwtNjIuOCwzOC41LDEwMC43LTEzMy4zLDMzLjEsMTE1LTE1LjctMTguOGMtNi41LTcuOC0xNS0xMS4zLTI1LjEtMTEuMmguMVoiLz4KICAgICAgPHBhdGggY2xhc3M9ImNscy0xIiBkPSJNNTMyLjgzLDI0MS42YzAtMTQuMyw5LjktMTkuNSwyMi41LTE5LjVoMzcuMmwtMi44LDIwLjRjLTksNy45LTI1LjUsMTUuNi0zNy43LDE1LjZzLTE5LjItNS43LTE5LjEtMTYuNGgwbC0uMS0uMVpNNTQ2LjAzLDE2NGwtOC4xLDE2LjJoMzYuMWMxMi44LDAsMjMuNiw0LjcsMjEuNiwxOS42bC0uOCw2aC00NS42Yy0yMy42LDAtMzguNiwxNC43LTM5LjMsMzUuNy0uOCwyMy43LDE1LjQsMzUuNiwzNy43LDM1LjZzMzIuMS04LjYsNDAuMS0yMC4xbC0xLjIsOC43Yy0uNiw0LjUsMi44LDguNCw3LjMsOC40aDE0LjNsOS44LTY5LjljMy44LTI3LjEtMTEuNC00MC4yLTQwLTQwLjJoLTMxLjlaIi8+CiAgICA8L2c+CiAgPC9nPgo8L3N2Zz4=" alt="Afya"></div>
+    <div class="subtitle">Geradores de thumbs para lives</div>
+    <div class="cards">
+      <a class="card" href="marcas.html">
+        <span class="card-tag tag-marcas">PREPARATÓRIO RESIDÊNCIA</span>
+        <div class="card-title">Template de Lives Padrão das 3 Marcas</div>
+        <div class="card-desc">Thumbs de live no padrão das 3 marcas, com foto do médico, ícone LIVE e linhas de título configuráveis.</div>
+      </a>
+      <a class="card" href="posgraduacao.html">
+        <span class="card-tag tag-posgrad">PÓS-GRADUAÇÃO</span>
+        <div class="card-title">Template de Lives de Pós-graduação</div>
+        <div class="card-desc">Template oficial de pós-graduação — título, palestrante(s), data e horário.</div>
+      </a>
+    </div>
+  </div>
+</body>
+</html>
