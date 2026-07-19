@@ -7,7 +7,7 @@ import { fetchBook, downloadEpub, downloadChapterEpub, getErrorMessage } from "@
 import { formatBytes, formatDate, STATUS_COLOR, STATUS_LABEL } from "@/lib/utils";
 import {
   ArrowLeft, Download, FileText, BookOpen, Loader2,
-  AlertCircle, Calendar, Hash, Layers
+  AlertCircle, Calendar, Hash, Layers, Eye
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -95,14 +95,23 @@ export default function BookDetailPage() {
         </div>
 
         {book.status === "done" && book.full_epub && (
-          <button
-            onClick={handleDownloadFull}
-            disabled={downloadingFull}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 text-emerald-700 text-sm font-medium hover:bg-emerald-100 transition-colors flex-shrink-0 disabled:opacity-50"
-          >
-            {downloadingFull ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-            Baixar EPUB completo
-          </button>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Link
+              href={`/reader/${bookId}`}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-hover text-gray-600 text-sm font-medium hover:bg-surface-border transition-colors"
+            >
+              <Eye className="h-4 w-4" />
+              Visualizar
+            </Link>
+            <button
+              onClick={handleDownloadFull}
+              disabled={downloadingFull}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 text-emerald-700 text-sm font-medium hover:bg-emerald-100 transition-colors disabled:opacity-50"
+            >
+              {downloadingFull ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              Baixar EPUB completo
+            </button>
+          </div>
         )}
       </div>
 

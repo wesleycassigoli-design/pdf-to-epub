@@ -171,8 +171,22 @@ async function downloadViaBlob(url: string, fallbackFilename: string): Promise<v
   const response = await api.get(url, { responseType: "blob" });
   const disposition = response.headers["content-disposition"] as string | undefined;
   let filename = fallbackFilename;
-  const match = disposition?.match(/filename="?([^"]+)"?/);
-  if (match) filename = match[1];
+  if (disposition) {
+    // O backend (Starlette FileResponse) usa urllib.parse.quote() internamente
+    // e só manda filename="..." puro quando o nome bate 100% com o resultado
+    // do quote — ou seja, sem espaço, acento, parêntese etc. Como isso é raro
+    // em nome de arquivo real, quase sempre vem no formato RFC 5987
+    // (filename*=UTF-8''nome%20codificado), que precisa ser decodificado à
+    // parte; checar esse formato primeiro e só cair no formato simples como
+    // segundo caso.
+    const rfc5987 = disposition.match(/filename\*=(?:UTF-8|utf-8)''([^;]+)/);
+    if (rfc5987) {
+      filename = decodeURIComponent(rfc5987[1]);
+    } else {
+      const plain = disposition.match(/filename="?([^";]+)"?/);
+      if (plain) filename = plain[1];
+    }
+  }
 
   const blobUrl = URL.createObjectURL(response.data);
   const a = document.createElement("a");
@@ -189,6 +203,14 @@ export const downloadEpub = (bookId: string, fallbackFilename = "livro.epub") =>
 
 export const downloadChapterEpub = (bookId: string, chapterId: string, fallbackFilename = "capitulo.epub") =>
   downloadViaBlob(`/download/${bookId}/chapter/${chapterId}`, fallbackFilename);
+
+// Usado pelo visualizador (/reader/[id]) — mesmo endpoint autenticado do
+// download, só que como ArrayBuffer em memória (epub.js) em vez de salvar
+// no disco.
+export const fetchEpubArrayBuffer = async (bookId: string): Promise<ArrayBuffer> => {
+  const { data } = await api.get(`/download/${bookId}`, { responseType: "arraybuffer" });
+  return data;
+};
 
 // ─── Auth API ────────────────────────────────────────────────────────────────
 

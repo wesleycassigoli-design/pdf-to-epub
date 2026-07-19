@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useConversionStatus } from "@/hooks/useConversionStatus";
-import { Loader2, CheckCircle2, XCircle, Clock, BookOpen, Download, RotateCcw } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Clock, BookOpen, Download, RotateCcw, Eye } from "lucide-react";
 import { downloadEpub, getErrorMessage } from "@/lib/api";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -91,6 +91,13 @@ export function ConversionStatus({ bookId, onReset }: Props) {
               {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
               Baixar EPUB
             </button>
+            <Link
+              href={`/reader/${bookId}`}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-hover text-gray-600 text-xs font-medium hover:bg-surface-border transition-colors"
+            >
+              <Eye className="h-3.5 w-3.5" />
+              Visualizar
+            </Link>
             <Link
               href={`/book/${bookId}`}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-500/10 text-brand-600 text-xs font-medium hover:bg-brand-500/20 transition-colors"
