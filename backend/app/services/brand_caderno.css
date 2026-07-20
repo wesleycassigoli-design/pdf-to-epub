@@ -57,6 +57,7 @@ padding-left: 1em;
 padding-right: 1em;
 color: #384d7a;
 font-family: "Montserrat-SemiBold";
+margin-bottom: 1.2em;
 }
 
 
@@ -186,6 +187,13 @@ line-height: 130%;
 
 
 /* IMAGEM --------------------------------- */
+
+/* margin-bottom fica no container (.imagem), não no elemento seguinte —
+   assim o espaçamento vale pra qualquer coisa que venha depois (parágrafo,
+   título, outra imagem/destaque), sem depender de margin-top alheio. */
+.imagem {
+margin-bottom: 1.2em;
+}
 
 .imagem img {
 width: 95%;

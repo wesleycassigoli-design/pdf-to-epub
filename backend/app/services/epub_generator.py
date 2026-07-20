@@ -102,6 +102,7 @@ li {
   padding-right: 1em;
   color: #D31C5B;
   font-family: "AfyaSans-Bold";
+  margin-bottom: 1.2em;
 }
 """
 
