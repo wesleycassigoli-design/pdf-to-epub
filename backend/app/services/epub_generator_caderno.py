@@ -75,7 +75,14 @@ def _make_container_xml() -> str:
 
 # ─── HTML do documento ────────────────────────────────────────────────────────
 
-def _block_to_html(block: CadernoBlock) -> str:
+def _next_edit_id(edit_counter: list[int]) -> str:
+    """Contador sequencial global de data-edit-id, usado pelo editor (/reader/[id])
+    pra endereçar de forma estável cada elemento editável (p/h2/h3/li/img)."""
+    edit_counter[0] += 1
+    return f"p-{edit_counter[0]}"
+
+
+def _block_to_html(block: CadernoBlock, edit_counter: list[int]) -> str:
     if block.block_type == "caderno":
         return f'<div class="caderno">{_escape_xml(block.content)}</div>\n'
 
@@ -89,34 +96,35 @@ def _block_to_html(block: CadernoBlock) -> str:
         stem = block.image.filename.rsplit(".", 1)[0]
         return (
             f'<div class="imagem">\n'
-            f'<img alt="{_escape_xml(stem)}" src="../Images/{block.image.filename}"/>\n'
+            f'<img data-edit-id="{_next_edit_id(edit_counter)}" alt="{_escape_xml(stem)}" src="../Images/{block.image.filename}"/>\n'
             f'</div>\n'
         )
 
     if block.block_type == "destaque":
         return (
             f'<div class="destaque">\n'
-            f'<div class="icone"><img alt="ICONE_ConceitoMatador" src="../Images/ICONE_ConceitoMatador.png"/></div>\n'
-            f'<p>{block.content}</p>\n'
+            f'<div class="icone"><img data-edit-id="{_next_edit_id(edit_counter)}" alt="ICONE_ConceitoMatador" src="../Images/ICONE_ConceitoMatador.png"/></div>\n'
+            f'<p data-edit-id="{_next_edit_id(edit_counter)}">{block.content}</p>\n'
             f'</div>\n'
         )
 
     if block.block_type == "list_item":
-        return f'<ol><li><b2>{block.marker}</b2>{block.content}</li></ol>\n'
+        return f'<ol><li data-edit-id="{_next_edit_id(edit_counter)}"><b2>{block.marker}</b2>{block.content}</li></ol>\n'
 
     if block.block_type == "heading_numbered":
-        return f'<h2 id="sigil_toc_id_{block.toc_id}">{_escape_xml(block.content)}</h2>\n'
+        return f'<h2 id="sigil_toc_id_{block.toc_id}" data-edit-id="{_next_edit_id(edit_counter)}">{_escape_xml(block.content)}</h2>\n'
 
     if block.block_type == "heading_not_in_toc":
-        return f'<h3 class="sigil_not_in_toc">{_escape_xml(block.content)}</h3>\n'
+        return f'<h3 class="sigil_not_in_toc" data-edit-id="{_next_edit_id(edit_counter)}">{_escape_xml(block.content)}</h3>\n'
 
     if block.block_type == "paragraph":
-        return f"<p>{block.content}</p>\n"
+        return f'<p data-edit-id="{_next_edit_id(edit_counter)}">{block.content}</p>\n'
 
     return ""
 
 
 def _build_section_xhtml(structure: CadernoStructure) -> str:
+    edit_counter = [0]
     lines = []
     lines.append('<?xml version="1.0" encoding="utf-8"?>')
     lines.append('<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"')
@@ -128,7 +136,7 @@ def _build_section_xhtml(structure: CadernoStructure) -> str:
     lines.append('</head>')
     lines.append('<body>')
     for block in structure.blocks:
-        lines.append(_block_to_html(block))
+        lines.append(_block_to_html(block, edit_counter))
     lines.append('</body>')
     lines.append('</html>')
     return "\n".join(lines)

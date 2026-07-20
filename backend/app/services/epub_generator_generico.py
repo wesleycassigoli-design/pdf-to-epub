@@ -73,24 +73,34 @@ def _make_container_xml() -> str:
 </container>"""
 
 
-def _block_to_html(block: GenericBlock, heading_ids: dict) -> str:
+def _next_edit_id(edit_counter: list[int]) -> str:
+    """Contador sequencial global de data-edit-id, usado pelo editor (/reader/[id])
+    pra endereçar de forma estável cada elemento editável (p/h2/h3/li/img)."""
+    edit_counter[0] += 1
+    return f"p-{edit_counter[0]}"
+
+
+def _block_to_html(block: GenericBlock, heading_ids: dict, edit_counter: list[int]) -> str:
     if block.block_type == "paragraph":
-        return f"<p>{block.content}</p>\n"
+        return f'<p data-edit-id="{_next_edit_id(edit_counter)}">{block.content}</p>\n'
     if block.block_type == "list_item":
-        return f"<ul><li>{block.content}</li></ul>\n"
+        return f'<ul><li data-edit-id="{_next_edit_id(edit_counter)}">{block.content}</li></ul>\n'
     if block.block_type == "table":
         return block.raw_html + "\n"
     if block.block_type in ("heading1", "heading2", "heading3"):
         tag = {"heading1": "h1", "heading2": "h2", "heading3": "h3"}[block.block_type]
         anchor_id = heading_ids.get(id(block), "")
         id_attr = f' id="{anchor_id}"' if anchor_id else ""
-        return f"<{tag}{id_attr}>{_escape_xml(block.content)}</{tag}>\n"
+        # h1 fica de fora do editor por enquanto (só h2/h3 nesta fase)
+        edit_attr = f' data-edit-id="{_next_edit_id(edit_counter)}"' if tag != "h1" else ""
+        return f"<{tag}{id_attr}{edit_attr}>{_escape_xml(block.content)}</{tag}>\n"
     if block.block_type == "image" and block.image:
-        return f'<img src="../Images/{block.image.filename}" alt=""/>\n'
+        return f'<img data-edit-id="{_next_edit_id(edit_counter)}" src="../Images/{block.image.filename}" alt=""/>\n'
     return ""
 
 
 def _build_chapter_xhtml(structure: GenericStructure, heading_ids: dict) -> str:
+    edit_counter = [0]
     lines = []
     lines.append('<?xml version="1.0" encoding="UTF-8"?>')
     lines.append('<!DOCTYPE html>')
@@ -102,7 +112,7 @@ def _build_chapter_xhtml(structure: GenericStructure, heading_ids: dict) -> str:
     lines.append('<body>')
     lines.append(f'<h1 class="doc-title">{_escape_xml(structure.title)}</h1>')
     for block in structure.blocks:
-        lines.append(_block_to_html(block, heading_ids))
+        lines.append(_block_to_html(block, heading_ids, edit_counter))
     lines.append('</body>')
     lines.append('</html>')
     return "\n".join(lines)

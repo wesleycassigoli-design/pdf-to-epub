@@ -212,6 +212,34 @@ export const fetchEpubArrayBuffer = async (bookId: string): Promise<ArrayBuffer>
   return data;
 };
 
+export interface SaveEditsResponse {
+  status: string;
+  message: string;
+  text_edits_applied: number;
+  image_edits_applied: number;
+  epub_base64: string;
+}
+
+// O Storage às vezes demora alguns segundos pra refletir uma sobrescrita numa
+// leitura imediata (CDN na frente do bucket) — por isso o backend já manda o
+// EPUB editado direto na resposta, em vez de o frontend ter que buscar de
+// novo via GET /download logo em seguida.
+export function base64ToArrayBuffer(base64Str: string): ArrayBuffer {
+  const binary = atob(base64Str);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
+// Não define Content-Type manualmente — o axios/browser calcula o boundary
+// correto do multipart sozinho a partir do FormData.
+export const saveBookEdits = async (bookId: string, formData: FormData): Promise<SaveEditsResponse> => {
+  const { data } = await api.post(`/books/${bookId}/edits`, formData);
+  return data;
+};
+
 // ─── Auth API ────────────────────────────────────────────────────────────────
 
 export const registerUser = async (payload: {

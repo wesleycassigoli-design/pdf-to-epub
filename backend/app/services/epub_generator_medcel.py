@@ -48,15 +48,22 @@ def _make_container_xml() -> str:
 
 # ─── HTML do capítulo ─────────────────────────────────────────────────────────
 
-def _block_to_html(block: DocxBlock) -> str:
+def _next_edit_id(edit_counter: list[int]) -> str:
+    """Contador sequencial global de data-edit-id, usado pelo editor (/reader/[id])
+    pra endereçar de forma estável cada elemento editável (p/h2/h3/li/img)."""
+    edit_counter[0] += 1
+    return f"p-{edit_counter[0]}"
+
+
+def _block_to_html(block: DocxBlock, edit_counter: list[int]) -> str:
     if block.block_type == "paragraph":
-        return f"<p>{block.content}</p>\n"
+        return f'<p data-edit-id="{_next_edit_id(edit_counter)}">{block.content}</p>\n'
 
     if block.block_type == "h3":
-        return f"<h3>{_escape_xml(block.content)}</h3>\n"
+        return f'<h3 data-edit-id="{_next_edit_id(edit_counter)}">{_escape_xml(block.content)}</h3>\n'
 
     if block.block_type == "list_item":
-        return f"<ol><li><b2>▶</b2> {block.content}</li></ol>\n"
+        return f'<ol><li data-edit-id="{_next_edit_id(edit_counter)}"><b2>▶</b2> {block.content}</li></ol>\n'
 
     if block.block_type == "alert":
         return f'<div class="alert-box">{block.content}</div>\n'
@@ -71,7 +78,7 @@ def _block_to_html(block: DocxBlock) -> str:
         return (
             f'<div class="zoom">\n'
             f'{caption_html}'
-            f'  <img src="../Images/{img.filename}" alt="{_escape_xml(img.caption or img.filename)}"/>\n'
+            f'  <img data-edit-id="{_next_edit_id(edit_counter)}" src="../Images/{img.filename}" alt="{_escape_xml(img.caption or img.filename)}"/>\n'
             f'{source_html}'
             f'</div>\n'
         )
@@ -81,6 +88,7 @@ def _block_to_html(block: DocxBlock) -> str:
 
 def _build_chapter_xhtml(structure: DocxStructure) -> str:
     """Monta o XHTML completo do capítulo no padrão Medcel."""
+    edit_counter = [0]
     lines = []
     lines.append('<?xml version="1.0" encoding="UTF-8"?>')
     lines.append('<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"')
@@ -105,17 +113,17 @@ def _build_chapter_xhtml(structure: DocxStructure) -> str:
     for section in structure.sections:
         if section.title:
             section_id = f"sec{section.number:02d}"
-            lines.append(f'<h2 id="{section_id}">{_escape_xml(section.title).upper()}</h2>')
+            lines.append(f'<h2 id="{section_id}" data-edit-id="{_next_edit_id(edit_counter)}">{_escape_xml(section.title).upper()}</h2>')
 
         for block in section.blocks:
-            lines.append(_block_to_html(block))
+            lines.append(_block_to_html(block, edit_counter))
 
     # Referências
     if structure.references:
         lines.append('<hr/>')
         lines.append('<h3 class="referencias sigil_not_in_toc">REFERÊNCIAS</h3>')
         for ref in structure.references:
-            lines.append(f'<p class="referencia">{_escape_xml(ref)}</p>')
+            lines.append(f'<p class="referencia" data-edit-id="{_next_edit_id(edit_counter)}">{_escape_xml(ref)}</p>')
 
     # Botão voltar
     lines.append('<hr/>')
