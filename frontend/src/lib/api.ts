@@ -1,4 +1,5 @@
 import axios from "axios";
+import { toast } from "sonner";
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
@@ -26,6 +27,12 @@ api.interceptors.request.use((config) => {
 // pra uma rota específica, não significa que a sessão do usuário é inválida.
 const SESSION_INVALIDATING_CODES = new Set(["ACCESS_REVOKED", "PENDING_APPROVAL"]);
 
+// Sessão continua válida, só falta acesso a ESTE app específico — manda de
+// volta pra seleção de apps em vez de derrubar a sessão. Cobre quem tenta
+// acessar /, /reader/*, /history direto sem ter o app liberado (o backend
+// bloqueia de verdade, isso aqui só cuida da navegação/mensagem).
+const APP_ACCESS_DENIED_CODE = "APP_ACCESS_DENIED";
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -37,6 +44,11 @@ api.interceptors.response.use(
       localStorage.removeItem(AUTH_TOKEN_KEY);
       if (window.location.pathname !== "/login") {
         window.location.href = "/login";
+      }
+    } else if (status === 403 && code === APP_ACCESS_DENIED_CODE && typeof window !== "undefined") {
+      if (window.location.pathname !== "/apps") {
+        toast.error("Você não tem acesso a este aplicativo");
+        window.location.href = "/apps";
       }
     }
     return Promise.reject(error);
@@ -110,6 +122,9 @@ export interface User {
   is_admin: boolean;
   created_at: string;
   last_login_at: string | null;
+  deleted_at: string | null;
+  original_email: string | null;
+  app_access: string[];
 }
 
 export interface AuthResponse {
@@ -264,8 +279,8 @@ export const fetchMe = async (): Promise<User> => {
 
 // ─── Admin API ───────────────────────────────────────────────────────────────
 
-export const fetchAdminUsers = async (): Promise<User[]> => {
-  const { data } = await api.get<User[]>("/admin/users");
+export const fetchAdminUsers = async (showDeleted = false): Promise<User[]> => {
+  const { data } = await api.get<User[]>("/admin/users", { params: { show_deleted: showDeleted } });
   return data;
 };
 
@@ -281,5 +296,23 @@ export const revokeUser = async (userId: string): Promise<User> => {
 
 export const promoteUser = async (userId: string): Promise<User> => {
   const { data } = await api.post<User>(`/admin/users/${userId}/promote`);
+  return data;
+};
+
+export const demoteUser = async (userId: string): Promise<User> => {
+  const { data } = await api.post<User>(`/admin/users/${userId}/demote`);
+  return data;
+};
+
+export const deleteUser = async (userId: string): Promise<User> => {
+  const { data } = await api.post<User>(`/admin/users/${userId}/delete`);
+  return data;
+};
+
+export const updateAppAccess = async (
+  userId: string,
+  access: { epub: boolean; thumbs: boolean }
+): Promise<User> => {
+  const { data } = await api.patch<User>(`/admin/users/${userId}/app-access`, access);
   return data;
 };

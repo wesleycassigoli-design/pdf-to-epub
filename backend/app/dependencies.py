@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.database import get_db
-from app.models.models import User
+from app.models.models import User, UserAppAccess
 from app.services.auth_service import decode_access_token
 
 _bearer_scheme = HTTPBearer(auto_error=False)
@@ -40,6 +40,12 @@ async def get_current_user(
     if not user:
         raise HTTPException(status_code=401, detail={"code": "INVALID_TOKEN", "message": "Sessão inválida, faça login novamente"})
 
+    # Exclusão lógica: mesmo com um JWT ainda válido (não expirado), um
+    # usuário excluído perde acesso imediatamente — igual à revogação, essa
+    # checagem roda a cada request porque busca o usuário fresco no banco.
+    if user.deleted_at is not None:
+        raise HTTPException(status_code=401, detail={"code": "INVALID_TOKEN", "message": "Sessão inválida, faça login novamente"})
+
     return user
 
 
@@ -55,3 +61,31 @@ async def require_admin(user: User = Depends(get_current_approved_user)) -> User
     if not user.is_admin:
         raise HTTPException(status_code=403, detail={"code": "ADMIN_REQUIRED", "message": "Acesso restrito a administradores"})
     return user
+
+
+def require_app_access(app_key: str):
+    """Dependency factory: exige acesso aprovado a um app específico
+    ('epub'/'thumbs'). Admin sempre passa, sem depender da tabela
+    user_app_access. Substitui get_current_approved_user nas rotas de cada
+    app — retorna o mesmo User, então dá pra trocar uma pela outra direto."""
+    async def _check(
+        user: User = Depends(get_current_approved_user),
+        db: AsyncSession = Depends(get_db),
+    ) -> User:
+        if user.is_admin:
+            return user
+        result = await db.execute(
+            select(UserAppAccess).where(
+                UserAppAccess.user_id == user.id, UserAppAccess.app_key == app_key
+            )
+        )
+        if result.scalar_one_or_none() is None:
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "code": "APP_ACCESS_DENIED",
+                    "message": f"Você não tem acesso a este aplicativo. Peça a um administrador pra liberar o acesso.",
+                },
+            )
+        return user
+    return _check

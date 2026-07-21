@@ -9,7 +9,7 @@ from app.schemas.schemas import UploadResponse
 from app.services.storage_service import validate_and_save_upload, upload_to_supabase
 from app.services.conversion_service import convert_pdf_to_epub, convert_docx_to_epub
 from app.services.watchdog_service import mark_stale_conversions_as_error
-from app.dependencies import get_current_approved_user
+from app.dependencies import require_app_access
 from app.config import get_settings
 import structlog
 
@@ -25,7 +25,7 @@ async def upload_pdf(
     mode: str = Form("fiel"),        # "fiel" (imagem) ou "texto" (reflow) — ignorado para DOCX
     template: str = Form("medcel"),  # template editorial usado para DOCX — ignorado para PDF
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(get_current_approved_user),
+    _user: User = Depends(require_app_access("epub")),
 ):
     """
     Recebe PDF ou DOCX, valida, salva no Supabase e enfileira conversão.

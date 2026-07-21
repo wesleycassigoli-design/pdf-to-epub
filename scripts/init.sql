@@ -55,7 +55,22 @@ CREATE TABLE IF NOT EXISTS users (
     is_admin            BOOLEAN NOT NULL DEFAULT false,
     privacy_accepted_at TIMESTAMPTZ NOT NULL,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    last_login_at       TIMESTAMPTZ
+    last_login_at       TIMESTAMPTZ,
+    -- Exclusão lógica: deleted_at marcado e email trocado por um valor
+    -- anônimo (deleted_<uuid>@deleted.local); original_email guarda o
+    -- valor real só pra auditoria. Libera o email original pra recadastro.
+    deleted_at          TIMESTAMPTZ,
+    original_email      VARCHAR(255)
+);
+
+-- ─── Tabela: user_app_access (permissão granular por app) ───────────────────
+-- Só vale pra quem NÃO é admin — admin sempre tem acesso a tudo.
+CREATE TABLE IF NOT EXISTS user_app_access (
+    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    app_key     VARCHAR(50) NOT NULL,
+    granted_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(user_id, app_key)
 );
 
 -- ─── Índices ────────────────────────────────────────────────────────────────
@@ -65,6 +80,8 @@ CREATE INDEX IF NOT EXISTS idx_chapters_book_id  ON chapters(book_id);
 CREATE INDEX IF NOT EXISTS idx_conversions_book  ON conversions(book_id);
 CREATE INDEX IF NOT EXISTS idx_conversions_task  ON conversions(task_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(LOWER(email));
+CREATE INDEX IF NOT EXISTS idx_users_deleted_at   ON users(deleted_at);
+CREATE INDEX IF NOT EXISTS idx_user_app_access_user ON user_app_access(user_id);
 CREATE INDEX IF NOT EXISTS idx_users_status       ON users(status);
 
 -- ─── Trigger: atualiza updated_at automaticamente ───────────────────────────

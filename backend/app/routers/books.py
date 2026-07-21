@@ -13,7 +13,7 @@ from app.schemas.schemas import BookOut, BookListItem, ChapterOut, StatusRespons
 from app.services.storage_service import download_from_supabase, upload_to_supabase
 from app.services.epub_editor_service import apply_edits, TextEdit, ImageEdit, EpubEditError, MAX_IMAGE_BYTES
 from app.services.conversion_service import _validate_epub_zip
-from app.dependencies import get_current_approved_user
+from app.dependencies import require_app_access
 from app.config import get_settings
 import structlog
 
@@ -51,7 +51,7 @@ async def list_books(
     db: AsyncSession = Depends(get_db),
     limit: int = 20,
     offset: int = 0,
-    _user: User = Depends(get_current_approved_user),
+    _user: User = Depends(require_app_access("epub")),
 ):
     result = await db.execute(
         select(Book).order_by(Book.created_at.desc()).limit(limit).offset(offset)
@@ -74,7 +74,7 @@ async def list_books(
 
 # ─── GET /books/{id} ─────────────────────────────────────────────────────────
 @router.get("/books/{book_id}", response_model=BookOut)
-async def get_book(book_id: uuid.UUID, db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_approved_user)):
+async def get_book(book_id: uuid.UUID, db: AsyncSession = Depends(get_db), _user: User = Depends(require_app_access("epub"))):
     result = await db.execute(select(Book).where(Book.id == book_id))
     book = result.scalar_one_or_none()
     if not book:
@@ -103,7 +103,7 @@ async def get_book(book_id: uuid.UUID, db: AsyncSession = Depends(get_db), _user
 
 # ─── GET /status/{book_id} ───────────────────────────────────────────────────
 @router.get("/status/{book_id}", response_model=StatusResponse)
-async def get_status(book_id: uuid.UUID, db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_approved_user)):
+async def get_status(book_id: uuid.UUID, db: AsyncSession = Depends(get_db), _user: User = Depends(require_app_access("epub"))):
     result = await db.execute(select(Book).where(Book.id == book_id))
     book = result.scalar_one_or_none()
     if not book:
@@ -139,7 +139,7 @@ async def get_status(book_id: uuid.UUID, db: AsyncSession = Depends(get_db), _us
 
 # ─── GET /chapters/{book_id} ─────────────────────────────────────────────────
 @router.get("/chapters/{book_id}", response_model=list[ChapterOut])
-async def list_chapters(book_id: uuid.UUID, db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_approved_user)):
+async def list_chapters(book_id: uuid.UUID, db: AsyncSession = Depends(get_db), _user: User = Depends(require_app_access("epub"))):
     ch_result = await db.execute(
         select(Chapter).where(Chapter.book_id == book_id).order_by(Chapter.chapter_number)
     )
@@ -148,7 +148,7 @@ async def list_chapters(book_id: uuid.UUID, db: AsyncSession = Depends(get_db), 
 
 # ─── GET /download/{book_id} ─────────────────────────────────────────────────
 @router.get("/download/{book_id}")
-async def download_full_epub(book_id: uuid.UUID, db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_approved_user)):
+async def download_full_epub(book_id: uuid.UUID, db: AsyncSession = Depends(get_db), _user: User = Depends(require_app_access("epub"))):
     result = await db.execute(select(Book).where(Book.id == book_id))
     book = result.scalar_one_or_none()
     if not book:
@@ -175,7 +175,7 @@ async def download_chapter_epub(
     book_id: uuid.UUID,
     chapter_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(get_current_approved_user),
+    _user: User = Depends(require_app_access("epub")),
 ):
     result = await db.execute(select(Book).where(Book.id == book_id))
     book = result.scalar_one_or_none()
@@ -212,7 +212,7 @@ async def apply_book_edits(
     edits: str = Form(...),
     files: list[UploadFile] = File(default=[]),
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(get_current_approved_user),
+    _user: User = Depends(require_app_access("epub")),
 ):
     result = await db.execute(select(Book).where(Book.id == book_id))
     book = result.scalar_one_or_none()
@@ -323,7 +323,7 @@ async def apply_book_edits(
 
 # ─── GET /conversions/{book_id} ──────────────────────────────────────────────
 @router.get("/conversions/{book_id}", response_model=list[ConversionOut])
-async def list_conversions(book_id: uuid.UUID, db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_approved_user)):
+async def list_conversions(book_id: uuid.UUID, db: AsyncSession = Depends(get_db), _user: User = Depends(require_app_access("epub"))):
     result = await db.execute(
         select(Conversion).where(Conversion.book_id == book_id).order_by(Conversion.created_at.desc())
     )

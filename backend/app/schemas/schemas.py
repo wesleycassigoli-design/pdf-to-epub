@@ -109,6 +109,11 @@ class UserOut(BaseModel):
     is_admin: bool
     created_at: datetime
     last_login_at: Optional[datetime]
+    deleted_at: Optional[datetime] = None
+    original_email: Optional[str] = None
+    # Apps liberados pro usuário ("epub"/"thumbs") — admin sempre tem todos,
+    # computado à parte (não vem direto do ORM); ver app/services/user_service.py.
+    app_access: list[str] = Field(default_factory=list)
 
 
 class RegisterResponse(BaseModel):
@@ -120,3 +125,8 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserOut
+
+
+class AppAccessUpdate(BaseModel):
+    epub: bool = False
+    thumbs: bool = False

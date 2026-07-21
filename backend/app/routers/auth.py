@@ -17,6 +17,7 @@ from app.services.auth_service import (
     reset_login_attempts,
 )
 from app.dependencies import get_current_approved_user
+from app.services.user_service import build_user_out
 from app.config import get_settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -104,9 +105,9 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
 
     token = create_access_token(str(user.id), user.is_admin)
     logger.info("user_login", email=email)
-    return TokenResponse(access_token=token, user=UserOut.model_validate(user))
+    return TokenResponse(access_token=token, user=await build_user_out(db, user))
 
 
 @router.get("/me", response_model=UserOut)
-async def me(user: User = Depends(get_current_approved_user)):
-    return UserOut.model_validate(user)
+async def me(user: User = Depends(get_current_approved_user), db: AsyncSession = Depends(get_db)):
+    return await build_user_out(db, user)

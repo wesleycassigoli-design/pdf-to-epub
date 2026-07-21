@@ -87,3 +87,26 @@ class User(Base):
     privacy_accepted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    # Exclusão lógica: deleted_at marcado e email substituído por um valor
+    # anônimo (deleted_<uuid>@deleted.local) — original_email guarda o valor
+    # real só pra auditoria. Nada é apagado de verdade; histórico de livros
+    # permanece intacto vinculado ao mesmo user_id.
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    original_email: Mapped[str | None] = mapped_column(String(255))
+
+
+class UserAppAccess(Base):
+    """Acesso granular por aplicativo (app_key: 'epub' | 'thumbs', ...).
+    Só vale pra quem NÃO é admin — admin sempre tem acesso a tudo,
+    verificado direto em is_admin, sem depender desta tabela."""
+    __tablename__ = "user_app_access"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    app_key: Mapped[str] = mapped_column(String(50), nullable=False)
+    granted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
