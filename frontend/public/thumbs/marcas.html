@@ -398,20 +398,21 @@ function render(){
 
   // bottom date/time bar (fonte NunitoSans ExtraBold + reforço de negrito)
   const barH = 110;
+  const barLift = 12; // ajuste fino: sobe a faixa (e o texto dela) alguns px
   const barGrad = ctx.createLinearGradient(0,0,650,0);
   barGrad.addColorStop(0,'#ffffff');
   barGrad.addColorStop(0.6,'#ffffff');
   barGrad.addColorStop(1,'rgba(255,255,255,0)');
   ctx.fillStyle = barGrad;
-  ctx.fillRect(0, H-barH, 650, barH);
+  ctx.fillRect(0, H-barH-barLift, 650, barH);
   ctx.font = '800 62px NunitoSans';
   ctx.lineJoin = 'round';
   ctx.miterLimit = 2;
   ctx.strokeStyle = '#111';
   ctx.lineWidth = 3.5;
-  ctx.strokeText(`${state.date} - ${state.time}`, 60, H-35);
+  ctx.strokeText(`${state.date} - ${state.time}`, 60, H-35-barLift);
   ctx.fillStyle = '#111';
-  ctx.fillText(`${state.date} - ${state.time}`, 60, H-35);
+  ctx.fillText(`${state.date} - ${state.time}`, 60, H-35-barLift);
 }
 
 function drawPersonImage(b){
