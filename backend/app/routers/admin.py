@@ -47,7 +47,19 @@ async def list_users(
         query = query.where(User.deleted_at.is_(None))
     result = await db.execute(query)
     users = result.scalars().all()
-    return [await build_user_out(db, u) for u in users]
+
+    reused_result = await db.execute(
+        select(User.original_email).where(User.deleted_at.is_not(None), User.original_email.is_not(None))
+    )
+    reused_emails = {row[0] for row in reused_result.all()}
+
+    out = []
+    for u in users:
+        user_out = await build_user_out(db, u)
+        if u.deleted_at is None and u.email in reused_emails:
+            user_out = user_out.model_copy(update={"reused_deleted_email": True})
+        out.append(user_out)
+    return out
 
 
 @router.post("/users/{user_id}/approve", response_model=UserOut)

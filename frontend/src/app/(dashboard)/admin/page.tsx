@@ -8,7 +8,7 @@ import {
 } from "@/lib/api";
 import { formatDate, cn, USER_STATUS_LABEL, USER_STATUS_COLOR } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
-import { Loader2, AlertCircle, ShieldCheck, ShieldX, ShieldPlus, ShieldMinus, Trash2 } from "lucide-react";
+import { Loader2, AlertCircle, AlertTriangle, ShieldCheck, ShieldX, ShieldPlus, ShieldMinus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 const APP_LABELS: Record<string, string> = {
@@ -146,6 +146,14 @@ export default function AdminPage() {
                     </td>
                     <td className="px-5 py-3 text-gray-500">
                       {u.email}
+                      {!isDeleted && u.reused_deleted_email && (
+                        <span
+                          title="Este e-mail teve uma conta excluída anteriormente. Se for um recadastro, a senha é diferente da conta antiga."
+                          className="ml-1.5 inline-flex items-center text-amber-500 cursor-help"
+                        >
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                        </span>
+                      )}
                       {isDeleted && (
                         <p className="text-[11px] text-gray-400 mt-0.5">Original: {u.original_email || "—"}</p>
                       )}

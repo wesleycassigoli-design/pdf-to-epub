@@ -114,6 +114,10 @@ class UserOut(BaseModel):
     # Apps liberados pro usuário ("epub"/"thumbs") — admin sempre tem todos,
     # computado à parte (não vem direto do ORM); ver app/services/user_service.py.
     app_access: list[str] = Field(default_factory=list)
+    # True quando o e-mail deste usuário já pertenceu a uma conta excluída
+    # anteriormente (exclusão lógica libera o e-mail pra recadastro) — só
+    # aviso informativo no painel admin, computado à parte em admin.list_users.
+    reused_deleted_email: bool = False
 
 
 class RegisterResponse(BaseModel):

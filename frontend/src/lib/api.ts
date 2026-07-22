@@ -125,6 +125,7 @@ export interface User {
   deleted_at: string | null;
   original_email: string | null;
   app_access: string[];
+  reused_deleted_email: boolean;
 }
 
 export interface AuthResponse {
