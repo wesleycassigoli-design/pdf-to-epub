@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen, Image as ImageIcon, ShieldCheck, KeyRound } from "lucide-react";
+import { BookOpen, Image as ImageIcon, ShieldCheck, KeyRound, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const APPS = [
@@ -24,7 +24,7 @@ const APPS = [
 ];
 
 export default function AppsPage() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   // Esconde o card de apps que o usuário não tem liberado — admin sempre
   // vê tudo. Isso é só a camada de UI; o bloqueio de verdade acontece no
   // backend (rotas do EPUB) e na própria página /thumbs.
@@ -32,23 +32,39 @@ export default function AppsPage() {
 
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center px-4 py-16 bg-surface">
-      <div className="absolute top-5 right-5 flex items-center gap-1.5">
-        <Link
-          href="/conta"
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-gray-500 hover:text-ink hover:bg-surface-hover transition-colors"
-        >
-          <KeyRound className="h-4 w-4" />
-          Minha conta
-        </Link>
-        {user?.is_admin && (
-          <Link
-            href="/admin"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-gray-500 hover:text-secondary hover:bg-surface-hover transition-colors"
-          >
-            <ShieldCheck className="h-4 w-4" />
-            Admin
-          </Link>
+      <div className="absolute top-5 right-5 flex items-center gap-4">
+        {user && (
+          <div className="text-right">
+            <p className="text-xs text-ink truncate max-w-[180px]">{user.full_name}</p>
+            <p className="text-[11px] text-gray-500 truncate max-w-[180px]">{user.email}</p>
+          </div>
         )}
+        <div className="flex items-center gap-1.5">
+          <Link
+            href="/conta"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-gray-500 hover:text-ink hover:bg-surface-hover transition-colors"
+          >
+            <KeyRound className="h-4 w-4" />
+            Minha conta
+          </Link>
+          {user?.is_admin && (
+            <Link
+              href="/admin"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-gray-500 hover:text-secondary hover:bg-surface-hover transition-colors"
+            >
+              <ShieldCheck className="h-4 w-4" />
+              Admin
+            </Link>
+          )}
+          <button
+            onClick={logout}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-gray-500 hover:text-red-600 hover:bg-surface-hover transition-colors"
+            title="Sair"
+          >
+            <LogOut className="h-4 w-4" />
+            Sair
+          </button>
+        </div>
       </div>
 
       <img src="/logo-afya.svg" alt="Afya" className="h-9 w-auto mb-2" />
