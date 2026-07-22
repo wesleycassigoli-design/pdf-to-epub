@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen, Image as ImageIcon, ShieldCheck } from "lucide-react";
+import { BookOpen, Image as ImageIcon, ShieldCheck, KeyRound } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const APPS = [
@@ -32,15 +32,24 @@ export default function AppsPage() {
 
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center px-4 py-16 bg-surface">
-      {user?.is_admin && (
+      <div className="absolute top-5 right-5 flex items-center gap-1.5">
         <Link
-          href="/admin"
-          className="absolute top-5 right-5 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-gray-500 hover:text-secondary hover:bg-surface-hover transition-colors"
+          href="/conta"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-gray-500 hover:text-ink hover:bg-surface-hover transition-colors"
         >
-          <ShieldCheck className="h-4 w-4" />
-          Admin
+          <KeyRound className="h-4 w-4" />
+          Minha conta
         </Link>
-      )}
+        {user?.is_admin && (
+          <Link
+            href="/admin"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-gray-500 hover:text-secondary hover:bg-surface-hover transition-colors"
+          >
+            <ShieldCheck className="h-4 w-4" />
+            Admin
+          </Link>
+        )}
+      </div>
 
       <img src="/logo-afya.svg" alt="Afya" className="h-9 w-auto mb-2" />
       <p className="text-sm text-gray-500 mb-10">Escolha um aplicativo</p>

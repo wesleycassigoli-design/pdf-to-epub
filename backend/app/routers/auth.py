@@ -7,7 +7,15 @@ import structlog
 
 from app.database import get_db
 from app.models.models import User
-from app.schemas.schemas import RegisterRequest, RegisterResponse, LoginRequest, TokenResponse, UserOut
+from app.schemas.schemas import (
+    RegisterRequest,
+    RegisterResponse,
+    LoginRequest,
+    TokenResponse,
+    UserOut,
+    ChangePasswordRequest,
+    MessageResponse,
+)
 from app.services.auth_service import (
     hash_password,
     verify_password,
@@ -111,3 +119,24 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
 @router.get("/me", response_model=UserOut)
 async def me(user: User = Depends(get_current_approved_user), db: AsyncSession = Depends(get_db)):
     return await build_user_out(db, user)
+
+
+@router.post("/change-password", response_model=MessageResponse)
+async def change_password(
+    payload: ChangePasswordRequest,
+    user: User = Depends(get_current_approved_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if not verify_password(payload.current_password, user.password_hash):
+        # 400, não 401: um 401 aqui dispararia o logout automático do
+        # interceptor do axios (qualquer 401 é tratado como sessão inválida),
+        # e isso não é um problema de sessão — é só a senha atual errada.
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "INVALID_CURRENT_PASSWORD", "message": "Senha atual incorreta"},
+        )
+
+    user.password_hash = hash_password(payload.new_password)
+    await db.commit()
+    logger.info("user_password_changed", user_id=str(user.id))
+    return MessageResponse(message="Senha alterada com sucesso")

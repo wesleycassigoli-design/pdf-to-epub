@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Upload, History, ShieldCheck, LogOut, ArrowLeft } from "lucide-react";
+import { Upload, History, ShieldCheck, LogOut, ArrowLeft, KeyRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -68,8 +68,16 @@ export function Sidebar() {
       {user && (
         <div className="px-5 py-3 border-t border-surface-border">
           <p className="text-xs text-ink truncate">{user.full_name}</p>
-          <div className="flex items-center justify-between mt-1">
-            <p className="text-[11px] text-gray-500 truncate">{user.email}</p>
+          <p className="text-[11px] text-gray-500 truncate mt-0.5">{user.email}</p>
+          <div className="flex items-center justify-between mt-1.5">
+            <Link
+              href="/conta"
+              className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-ink transition-colors"
+              title="Trocar senha"
+            >
+              <KeyRound className="h-3 w-3" />
+              Minha conta
+            </Link>
             <button
               onClick={logout}
               className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-red-600 transition-colors flex-shrink-0 ml-2"

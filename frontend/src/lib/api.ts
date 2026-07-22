@@ -278,6 +278,10 @@ export const fetchMe = async (): Promise<User> => {
   return data;
 };
 
+export const changePassword = async (currentPassword: string, newPassword: string): Promise<void> => {
+  await api.post("/auth/change-password", { current_password: currentPassword, new_password: newPassword });
+};
+
 // ─── Admin API ───────────────────────────────────────────────────────────────
 
 export const fetchAdminUsers = async (showDeleted = false): Promise<User[]> => {
