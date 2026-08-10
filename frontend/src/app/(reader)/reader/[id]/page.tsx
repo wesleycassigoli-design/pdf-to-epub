@@ -59,6 +59,10 @@ export default function ReaderPage() {
   const [pendingEdits, setPendingEdits] = useState<Map<string, PendingEdit>>(new Map());
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    document.title = title ? `${title} — Hub Multimídia` : "Leitor — Hub Multimídia";
+  }, [title]);
+
   const attachContentHandlers = useCallback((contents: any) => {
     const doc: Document = contents.document;
     if (!doc) return;

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 export const metadata = {
-  title: "Política de Privacidade | PDF → EPUB3",
+  title: "Política de Privacidade — Hub Multimídia",
 };
 
 export default function PrivacyPolicyPage() {

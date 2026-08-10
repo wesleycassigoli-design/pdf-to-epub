@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { BookOpen, Image as ImageIcon, ShieldCheck, KeyRound, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,6 +26,10 @@ const APPS = [
 
 export default function AppsPage() {
   const { user, logout } = useAuth();
+
+  useEffect(() => {
+    document.title = "Aplicativos — Hub Multimídia";
+  }, []);
   // Esconde o card de apps que o usuário não tem liberado — admin sempre
   // vê tudo. Isso é só a camada de UI; o bloqueio de verdade acontece no
   // backend (rotas do EPUB) e na própria página /thumbs.

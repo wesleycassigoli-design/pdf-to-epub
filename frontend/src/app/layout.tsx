@@ -28,7 +28,7 @@ const jbmono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PDF → EPUB3 | Conversor de Livros",
+  title: "Hub Multimídia — Afya",
   description: "Converta PDFs em EPUB3 Fixed Layout com fidelidade total à diagramação original",
   icons: { icon: "/logo-afya.svg" },
 };

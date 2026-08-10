@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { ArrowLeft, ShieldAlert } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,6 +16,10 @@ import { useAuth } from "@/contexts/AuthContext";
 export default function ThumbsPage() {
   const { user } = useAuth();
   const hasAccess = !!user?.is_admin || !!user?.app_access?.includes("thumbs");
+
+  useEffect(() => {
+    document.title = "Gerador de Thumbs — Hub Multimídia";
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col bg-surface">
