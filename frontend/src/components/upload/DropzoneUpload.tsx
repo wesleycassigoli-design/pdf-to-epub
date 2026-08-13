@@ -14,7 +14,7 @@ interface Props {
 // "awaiting_template": DOCX recebido, aguardando o usuário escolher o template
 // antes de enviar de fato — evita processar no padrão errado.
 type UploadState = "idle" | "awaiting_template" | "uploading" | "queued" | "error";
-type Mode = "fiel" | "texto";
+type Mode = "fiel" | "texto" | "caderno_conceitos_matadores_v2";
 type Template = "medcel" | "generico" | "caderno_conceitos_matadores";
 
 const TEMPLATES: { id: Template; label: string; desc: string; available: boolean }[] = [
@@ -98,7 +98,7 @@ export function DropzoneUpload({ onSuccess }: Props) {
   return (
     <div className="w-full max-w-2xl mx-auto">
       {showModeSelector && (
-        <div className="mb-4 grid grid-cols-2 gap-3">
+        <div className="mb-4 grid grid-cols-3 gap-3">
           <button
             onClick={() => setMode("fiel")}
             className={cn(
@@ -127,6 +127,21 @@ export function DropzoneUpload({ onSuccess }: Props) {
             <div>
               <p className="text-sm font-semibold text-ink">Modo Texto</p>
               <p className="text-xs text-gray-500 mt-0.5">Texto selecionável e ajustável. Layout livre.</p>
+            </div>
+          </button>
+          <button
+            onClick={() => setMode("caderno_conceitos_matadores_v2")}
+            className={cn(
+              "flex items-start gap-3 rounded-xl border p-4 text-left transition-all",
+              mode === "caderno_conceitos_matadores_v2"
+                ? "border-brand-500 bg-brand-500/10"
+                : "border-surface-border bg-surface-card hover:border-brand-500/40"
+            )}
+          >
+            <BookOpen className={cn("h-5 w-5 mt-0.5", mode === "caderno_conceitos_matadores_v2" ? "text-brand-600" : "text-gray-400")} />
+            <div>
+              <p className="text-sm font-semibold text-ink">Caderno de Conceitos Matadores — v2</p>
+              <p className="text-xs text-gray-500 mt-0.5">Cadernos de revisão em PDF: destaques de conceito matador, sumário e página de incidência.</p>
             </div>
           </button>
         </div>

@@ -32,6 +32,8 @@ async def upload_pdf(
     PDF:
       mode: "fiel" = imagem por página (idêntico ao PDF)
             "texto" = texto reflow (selecionável)
+            "caderno_conceitos_matadores_v2" = template "Caderno de Conceitos
+              Matadores — v2" (pipeline isolado, ver conversion_service.py)
     DOCX:
       template: "medcel" (padrão editorial Medcel) ou "generico" (conversão
       simples sem padrão fixo). Outros templates serão adicionados conforme
@@ -44,7 +46,7 @@ async def upload_pdf(
     if stale_count:
         logger.warning("stale_conversions_cleared", count=stale_count)
 
-    if mode not in ("fiel", "texto"):
+    if mode not in ("fiel", "texto", "caderno_conceitos_matadores_v2"):
         mode = "fiel"
 
     SUPPORTED_DOCX_TEMPLATES = ("medcel", "generico", "caderno_conceitos_matadores")  # adicionar novos templates aqui conforme forem implementados

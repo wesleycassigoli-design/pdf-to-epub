@@ -1,0 +1,246 @@
+/* brand_caderno_v2.css — folha de estilo própria do template "Caderno de
+   Conceitos Matadores — v2" (fonte PDF). Isolada de brand_caderno.css (v1,
+   Montserrat) e de brand.css (Medcel) — não compartilha nada com eles de
+   propósito, pra evoluir sem risco de regressão cruzada.
+
+   Paleta: magenta #ce0058, navy #182143, corpo #333333. */
+
+/* FONTES --------------------------------- */
+
+@font-face {
+font-family: "AfyaSans-Regular";
+src: url('../Fonts/AfyaSans-Regular.ttf');
+}
+
+@font-face {
+font-family: "AfyaSans-Bold";
+src: url('../Fonts/AfyaSans-Bold.ttf');
+}
+
+@font-face {
+font-family: "AfyaSans-Italic";
+src: url('../Fonts/AfyaSans-Italic.ttf');
+}
+
+@font-face {
+font-family: "AfyaSans-BoldItalic";
+src: url('../Fonts/AfyaSans-BoldItalic.ttf');
+}
+
+/* AfyaSansPro NÃO é usada aqui — ver backend/app/assets/fonts/afyasans_caderno_v2/README.md.
+   Resumo: o subconjunto extraído do PDF de referência não é seguro para
+   @font-face (2 dos 4 pesos não têm tabela 'cmap' e nenhum leitor baseado em
+   Chromium/WebKit consegue usá-los; os outros 2 só cobrem os caracteres do
+   PDF de exemplo). INCIDÊNCIA e o Sumário gerado usam AfyaSans-Bold/Regular
+   (fontes completas) como substituto visual até existir um AfyaSansPro
+   completo no acervo. */
+
+
+/* BASE --------------------------------- */
+
+body {
+font-family: "AfyaSans-Regular";
+color: #333333;
+line-height: 160%;
+}
+
+p {
+font-family: "AfyaSans-Regular";
+color: #333333;
+line-height: 160%;
+margin-bottom: 0.8em;
+}
+
+b {
+font-family: "AfyaSans-Bold";
+}
+
+i {
+font-family: "AfyaSans-Italic";
+}
+
+b i, i b {
+font-family: "AfyaSans-BoldItalic";
+}
+
+
+/* TÍTULOS --------------------------------- */
+
+h2 {
+font-family: "AfyaSans-Bold";
+color: #182143;
+font-size: 20px;
+margin-top: 1.4em;
+margin-bottom: 0.6em;
+}
+
+h3.sigil_not_in_toc {
+font-family: "AfyaSans-Bold";
+color: #182143;
+font-size: 16px;
+margin-top: 1.2em;
+margin-bottom: 0.5em;
+}
+
+/* "Como cai na prova!" reaproveita h3.sigil_not_in_toc, mas em magenta —
+   diferenciado pela classe adicional. */
+h3.como-cai-na-prova {
+color: #ce0058;
+}
+
+
+/* LISTAS --------------------------------- */
+
+ul {
+list-style: none;
+margin: 0 0 0.8em 0;
+padding-left: 0;
+}
+
+ul ul {
+margin-top: 0.3em;
+margin-bottom: 0.3em;
+}
+
+li {
+font-family: "AfyaSans-Regular";
+color: #333333;
+line-height: 150%;
+margin-bottom: 0.5em;
+padding-left: 1.3em;
+position: relative;
+}
+
+li::before {
+content: "•";
+color: #182143;
+position: absolute;
+left: 0;
+font-family: "AfyaSans-Regular";
+}
+
+ul ul li::before {
+content: "◦";
+}
+
+
+/* DESTAQUE (conceito matador) --------------------------------- */
+
+.destaque {
+background-color: #fdeef3;
+border-left: 4px solid #ce0058;
+border-radius: 6px;
+padding: 0.8em 1em 0.8em 1em;
+margin-bottom: 1.2em;
+overflow: auto;
+}
+
+.destaque .icone img {
+float: left;
+width: 28px;
+margin-right: 10px;
+margin-top: 2px;
+}
+
+.destaque p {
+color: #333333;
+margin-bottom: 0;
+}
+
+
+/* GABARITO / COMENTÁRIO / IDENTIFICADOR DE PROVA -------------- */
+
+p.gabarito-comentario {
+color: #ce0058;
+margin-bottom: 0.3em;
+}
+
+p.gabarito-comentario b {
+font-family: "AfyaSans-Bold";
+color: #ce0058;
+}
+
+
+/* SUMÁRIO (gerado) --------------------------------- */
+
+.sumario-titulo {
+font-family: "AfyaSans-Bold";
+color: #ce0058;
+font-size: 28px;
+margin-bottom: 1em;
+}
+
+.sumario-lista {
+list-style: none;
+padding-left: 0;
+}
+
+.sumario-lista li {
+padding-left: 0;
+margin-bottom: 0.7em;
+}
+
+.sumario-lista li::before {
+content: "";
+}
+
+.sumario-lista a {
+font-family: "AfyaSans-Bold";
+color: #182143;
+font-size: 14px;
+text-decoration: none;
+}
+
+
+/* INCIDÊNCIA (reconstruída) --------------------------------- */
+
+.incidencia {
+background: linear-gradient(135deg, #c11457 0%, #7f2768 100%);
+color: #ffffff;
+padding: 2em 1.5em;
+margin: -1em -1em 1.5em -1em;
+border-radius: 0;
+}
+
+.incidencia-titulo {
+font-family: "AfyaSans-Bold";
+color: #eeeeee;
+font-size: 26px;
+margin-bottom: 0.6em;
+}
+
+.incidencia-intro {
+font-family: "AfyaSans-Regular";
+color: #eeeeee;
+font-size: 11px;
+line-height: 140%;
+margin-bottom: 1.4em;
+}
+
+.incidencia-item {
+display: block;
+border-top: 1px solid rgba(255, 255, 255, 0.25);
+padding: 0.9em 0;
+overflow: auto;
+}
+
+.incidencia-item:first-of-type {
+border-top: none;
+}
+
+.incidencia-numero {
+font-family: "AfyaSans-Bold";
+color: #ffffff;
+font-size: 30px;
+float: left;
+width: 35%;
+}
+
+.incidencia-rotulo {
+font-family: "AfyaSans-Regular";
+color: #ffffff;
+font-size: 11px;
+line-height: 130%;
+float: left;
+width: 60%;
+}

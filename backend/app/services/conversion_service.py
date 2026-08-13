@@ -3,7 +3,9 @@ conversion_service.py
 Lógica de conversão executada em background (FastAPI BackgroundTasks), sem worker/broker
 separado. Substitui as antigas tasks Celery.
 
-- convert_pdf_to_epub  → PDF, modo "fiel" (imagem) ou "texto" (reflow)
+- convert_pdf_to_epub  → PDF, modo "fiel" (imagem), "texto" (reflow) ou
+  "caderno_conceitos_matadores_v2" (delega pra convert_pdf_to_epub_caderno_v2,
+  pipeline isolado)
 - convert_docx_to_epub → DOCX, template escolhido ("medcel" ou "generico")
 """
 
@@ -45,6 +47,15 @@ async def _append_step(db, conv, step: str, msg: str) -> None:
 async def convert_pdf_to_epub(conversion_id: str, book_id: str, pdf_path: str, original_name: str, mode: str = "fiel") -> None:
     """Baixa PDF do Supabase, processa e gera EPUBs no modo escolhido."""
     _dbg("convert_pdf_to_epub", f"INICIO book_id={book_id} mode={mode} original_name={original_name}")
+
+    if mode == "caderno_conceitos_matadores_v2":
+        # Pipeline novo e isolado (fonte PDF, mas NÃO reaproveita analyze_pdf/
+        # build_epub do modo Fiel/Texto) — ver
+        # convert_pdf_to_epub_caderno_v2 abaixo. Delega e retorna, sem tocar
+        # em nada do fluxo Fiel/Texto existente.
+        await convert_pdf_to_epub_caderno_v2(conversion_id, book_id, pdf_path, original_name)
+        return
+
     from app.models.models import Book, Chapter, Conversion
     from app.services.pdf_processor import analyze_pdf
     from app.services.epub_generator import build_epub, build_chapter_epub
@@ -121,6 +132,103 @@ async def convert_pdf_to_epub(conversion_id: str, book_id: str, pdf_path: str, o
             _dbg("convert_pdf_to_epub", f"EXCEPTION capturada: {e!r}")
             print(traceback.format_exc(), flush=True)
             logger.error("conversion_failed", book_id=book_id, error=str(e), exc_info=True)
+            try:
+                book.status = "error"
+                book.error_message = str(e)
+                conv.status = "error"
+                conv.finished_at = datetime.now(timezone.utc)
+                await _append_step(db, conv, "error", f"ERRO: {str(e)}")
+            except Exception:
+                _dbg("conversion_error_persist_failed", f"EXCEPTION ao persistir estado de erro, book_id={book_id}")
+                print(traceback.format_exc(), flush=True)
+                logger.error("conversion_error_persist_failed", book_id=book_id, exc_info=True)
+
+
+async def convert_pdf_to_epub_caderno_v2(conversion_id: str, book_id: str, pdf_path: str, original_name: str) -> None:
+    """
+    Baixa PDF do Supabase, processa e gera EPUB no template "Caderno de
+    Conceitos Matadores — v2". Pipeline PDF→EPUB novo e paralelo ao Fiel/
+    Texto — usa pdf_processor_caderno_v2.py / epub_generator_caderno_v2.py,
+    completamente isolado de pdf_processor.py / epub_generator.py. Gera um
+    único EPUB (sem fatiar por capítulo), mesmo modelo do fluxo DOCX
+    (convert_docx_to_epub) — um único Chapter registrado no banco.
+    """
+    from app.models.models import Book, Chapter, Conversion
+    from app.services.pdf_processor_caderno_v2 import analyze_pdf_caderno_v2
+    from app.services.epub_generator_caderno_v2 import build_epub_caderno_v2
+    from app.services.storage_service import get_epub_output_path, download_from_supabase, upload_to_supabase
+    from sqlalchemy import select
+
+    _dbg("convert_pdf_to_epub_caderno_v2", f"INICIO book_id={book_id} original_name={original_name}")
+
+    start_time = time.time()
+
+    async with AsyncSessionLocal() as db:
+        book = (await db.execute(select(Book).where(Book.id == book_id))).scalar_one_or_none()
+        conv = (await db.execute(select(Conversion).where(Conversion.id == conversion_id))).scalar_one_or_none()
+
+        if not book or not conv:
+            logger.error("conversion_target_missing", book_id=book_id, conversion_id=conversion_id)
+            return
+
+        try:
+            conv.status = "running"
+            conv.started_at = datetime.now(timezone.utc)
+            book.status = "processing"
+            await db.commit()
+
+            await _append_step(db, conv, "downloading", "Baixando PDF do storage (template Caderno de Conceitos Matadores — v2)")
+            local_pdf = os.path.join(settings.temp_dir, f"{book_id}_source.pdf")
+            os.makedirs(settings.temp_dir, exist_ok=True)
+            ok = await asyncio.to_thread(download_from_supabase, pdf_path, local_pdf)
+            if not ok:
+                raise FileNotFoundError(f"Não foi possível baixar o PDF: {pdf_path}")
+
+            await _append_step(db, conv, "analyzing", "Analisando PDF (template Caderno de Conceitos Matadores — v2)")
+            structure = await asyncio.to_thread(analyze_pdf_caderno_v2, local_pdf, original_name)
+            if structure.warnings:
+                logger.warning("caderno_v2_analysis_warnings", book_id=book_id, warnings=structure.warnings)
+
+            book.page_count = None
+            await db.commit()
+
+            await _append_step(db, conv, "building_epub", f"Gerando EPUB, título: {structure.title}")
+            full_epub_local = get_epub_output_path(book_id, f"{book_id}_full.epub")
+            os.makedirs(os.path.dirname(full_epub_local), exist_ok=True)
+            await asyncio.to_thread(build_epub_caderno_v2, structure, full_epub_local)
+
+            await asyncio.to_thread(_validate_epub_zip, full_epub_local)
+
+            full_epub_url = await upload_to_supabase(full_epub_local, f"epubs/{book_id}/full.epub")
+            book.full_epub = full_epub_url or full_epub_local
+            book.status = "done"
+            await db.commit()
+
+            chapter = Chapter(
+                book_id=uuid.UUID(book_id),
+                title=structure.title,
+                chapter_number=1,
+                start_page=1,
+                end_page=1,
+                epub_file=full_epub_url or full_epub_local,
+            )
+            db.add(chapter)
+            await db.commit()
+
+            duration_ms = int((time.time() - start_time) * 1000)
+            conv.status = "done"
+            conv.finished_at = datetime.now(timezone.utc)
+            conv.duration_ms = duration_ms
+            await _append_step(db, conv, "done", f"Concluído em {duration_ms}ms")
+
+            await asyncio.to_thread(_cleanup_temp, local_pdf, None)
+
+            _dbg("convert_pdf_to_epub_caderno_v2", f"FIM (sucesso) book_id={book_id} duration_ms={duration_ms}")
+
+        except Exception as e:
+            _dbg("convert_pdf_to_epub_caderno_v2", f"EXCEPTION capturada: {e!r}")
+            print(traceback.format_exc(), flush=True)
+            logger.error("caderno_v2_conversion_failed", book_id=book_id, error=str(e), exc_info=True)
             try:
                 book.status = "error"
                 book.error_message = str(e)

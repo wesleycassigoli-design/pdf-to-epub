@@ -138,7 +138,7 @@ export interface AuthResponse {
 
 export const uploadPdf = async (
   file: File,
-  mode: "fiel" | "texto",
+  mode: "fiel" | "texto" | "caderno_conceitos_matadores_v2",
   onProgress?: (pct: number) => void,
   template?: "medcel" | "generico" | "caderno_conceitos_matadores",
 ): Promise<UploadResponse> => {
