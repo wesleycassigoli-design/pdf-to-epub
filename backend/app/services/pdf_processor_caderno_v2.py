@@ -181,27 +181,137 @@ def _line_text(line: dict) -> str:
     return "".join(s.get("text", "") for s in line.get("spans", []))
 
 
-def _block_text(block: dict, skip_first_line: bool = False) -> str:
-    lines = block.get("lines", [])
+def _line_last_real_span_text(line: dict) -> str:
+    for s in reversed(line.get("spans", [])):
+        if s.get("text", "").strip():
+            return s.get("text", "")
+    return ""
+
+
+def _line_first_real_span_text(line: dict) -> str:
+    for s in line.get("spans", []):
+        if s.get("text", "").strip():
+            return s.get("text", "")
+    return ""
+
+
+# Tolerância (pt) pra considerar que o x1 de uma linha "bate" no x1 do
+# bloco (rule fix — hifenização de quebra de linha): o bloco é a bbox
+# mínima que envolve todas as suas linhas, então a linha mais larga tem
+# x1 == bloco.x1 exatamente; a folga é só por arredondamento de ponto
+# flutuante do PyMuPDF.
+HYPHEN_LINE_MARGIN_TOLERANCE_PT = 3.0
+
+
+def _should_dehyphenate(line: dict, next_line: dict, block_bbox) -> bool:
+    """Palavra quebrada no fim de uma linha (hífen de hifenização, não um
+    hífen "de verdade" no meio do texto como em "COVID-19"): só remove o
+    hífen quando ele cai exatamente na quebra de linha — a linha atual
+    bate na margem direita do parágrafo (bbox largo, não termina cedo) E
+    a próxima linha começa com minúscula sem espaço (continuação da
+    mesma palavra)."""
+    last_text = _line_last_real_span_text(line).rstrip()
+    if len(last_text) < 2 or not last_text.endswith("-"):
+        return False
+    if not block_bbox:
+        return False
+    line_bbox = line.get("bbox")
+    if not line_bbox:
+        return False
+    if abs(line_bbox[2] - block_bbox[2]) > HYPHEN_LINE_MARGIN_TOLERANCE_PT:
+        return False
+    next_text = _line_first_real_span_text(next_line)
+    if not next_text:
+        return False
+    first_char = next_text[0]
+    return first_char.isalpha() and first_char.islower()
+
+
+_TRAILING_HYPHEN_RE = re.compile(r"-((?:</[a-zA-Z]+>)*)\s*$")
+_LEADING_TAG_RE = re.compile(r"^(?:<[a-zA-Z]+>)*")
+
+
+def _strip_trailing_hyphen(text: str) -> str:
+    return _TRAILING_HYPHEN_RE.sub(r"\1", text, count=1)
+
+
+def _html_ends_with_hyphenated_word(html: str) -> bool:
+    """Mesma checagem de hifenização de _should_dehyphenate, mas para o
+    HTML já renderizado (usado na regra 8 — continuação entre páginas,
+    onde não há mais bbox de linha à mão pra comparar com a margem do
+    bloco; a quebra de página em si já é o sinal de que o texto foi
+    cortado). Confirma que o "-" está colado numa letra (não é um traço
+    isolado como " — ")."""
+    stripped = html.rstrip()
+    m = _TRAILING_HYPHEN_RE.search(stripped)
+    if not m:
+        return False
+    before = stripped[:m.start()]
+    return bool(before) and before[-1].isalpha()
+
+
+def _html_first_visible_char(html: str) -> str:
+    stripped = _LEADING_TAG_RE.sub("", html)
+    return stripped[0] if stripped else ""
+
+
+def _block_runs(block: dict, skip_first_line: bool = False) -> list[dict]:
+    """Achata todas as linhas do bloco numa lista única de "runs"
+    ({"text", "bold", "italic"}), na ordem de leitura, já com a
+    hifenização de quebra de linha resolvida: quando uma linha termina em
+    "-" bem na margem direita do parágrafo e a linha seguinte começa com
+    minúscula, o hífen é removido e as duas são unidas sem separador
+    (reconstituindo a palavra, ex. "conceito ma-" + "tador." vira
+    "conceito matador."). Nos demais casos, um espaço é inserido entre
+    linhas (a quebra de linha do PDF não inclui esse espaço no texto)."""
+    raw_lines = block.get("lines", [])
     if skip_first_line:
-        lines = lines[1:]
-    return " ".join(_line_text(line).strip() for line in lines if _line_text(line).strip())
+        raw_lines = raw_lines[1:]
+    lines = [ln for ln in raw_lines if _line_text(ln).strip()]
+    block_bbox = block.get("bbox")
+
+    runs: list[dict] = []
+    for i, line in enumerate(lines):
+        line_spans = [s for s in line.get("spans", []) if s.get("text", "").strip()]
+        if not line_spans:
+            continue
+        if runs:
+            if _should_dehyphenate(lines[i - 1], line, block_bbox):
+                last = runs[-1]
+                stripped = last["text"].rstrip()
+                runs[-1] = {**last, "text": stripped[:-1]}
+            else:
+                # Normaliza espaço no fim da linha anterior antes do
+                # separador explícito, pra não duplicar espaço quando o
+                # último span da linha já termina com um.
+                last = runs[-1]
+                runs[-1] = {**last, "text": last["text"].rstrip()}
+                runs.append({"text": " ", "bold": False, "italic": False})
+        for s in line_spans:
+            runs.append({
+                "text": s.get("text", ""),
+                "bold": _is_bold_span(s),
+                "italic": _is_italic_span(s),
+            })
+    return runs
 
 
-def _spans_to_html(spans: list[dict]) -> str:
+def _block_text(block: dict, skip_first_line: bool = False) -> str:
+    return "".join(r["text"] for r in _block_runs(block, skip_first_line)).strip()
+
+
+def _runs_to_html(runs: list[dict]) -> str:
     parts = []
-    for s in spans:
-        text = _escape_html(s.get("text", ""))
+    for r in runs:
+        text = _escape_html(r["text"])
         if not text.strip():
             parts.append(text)
             continue
-        bold = _is_bold_span(s)
-        italic = _is_italic_span(s)
-        if bold and italic:
+        if r["bold"] and r["italic"]:
             parts.append(f"<b><i>{text}</i></b>")
-        elif bold:
+        elif r["bold"]:
             parts.append(f"<b>{text}</b>")
-        elif italic:
+        elif r["italic"]:
             parts.append(f"<i>{text}</i>")
         else:
             parts.append(text)
@@ -209,18 +319,9 @@ def _spans_to_html(spans: list[dict]) -> str:
 
 
 def _block_html(block: dict, skip_first_line: bool = False) -> str:
-    """Concatena o HTML inline (bold/itálico) de todas as linhas do bloco,
-    juntando a quebra de linha do PDF (hifenização/wrap) com um espaço."""
-    lines = block.get("lines", [])
-    if skip_first_line:
-        lines = lines[1:]
-    parts = []
-    for line in lines:
-        spans = line.get("spans", [])
-        html = _spans_to_html(spans)
-        if html.strip():
-            parts.append(html.strip())
-    return " ".join(parts)
+    """HTML inline (bold/itálico) do bloco inteiro, com a hifenização de
+    quebra de linha já resolvida (ver _block_runs)."""
+    return _runs_to_html(_block_runs(block, skip_first_line)).strip()
 
 
 # ─── Classificação de blocos ──────────────────────────────────────────────────
@@ -311,28 +412,61 @@ def _is_como_cai_na_prova(block: dict) -> bool:
 
 
 def _destaque_label_len(block: dict) -> int | None:
-    """Soma os spans Bold iniciais do bloco até o primeiro ':' — usado
-    pela heurística da rule 5. Retorna None se não houver ':' nos spans
-    bold iniciais (não é padrão 'termo: definição')."""
+    """Soma os runs Bold iniciais do bloco até o primeiro ':' — usado
+    pela heurística da rule 5. Retorna None se não houver ':' nos runs
+    bold iniciais (não é padrão 'termo: definição'). Usa _block_runs (não
+    os spans crus) pra já vir com a hifenização de quebra de linha
+    resolvida — um rótulo que quebra no meio ("Notificação ao SI-" /
+    "NAN...") não deve ficar com hífen solto nem span cortado."""
     running = ""
-    for line in block.get("lines", []):
-        for span in line.get("spans", []):
-            text = span.get("text", "")
-            if not text.strip():
-                continue
-            if not _is_bold_span(span):
-                return len(running) if ":" in running else None
-            running += text
-            if ":" in text:
-                return len(running.split(":", 1)[0])
+    for r in _block_runs(block):
+        text = r["text"]
+        if not text.strip():
+            continue
+        if not r["bold"]:
+            return len(running) if ":" in running else None
+        running += text
+        if ":" in text:
+            return len(running.split(":", 1)[0])
     return None
+
+
+_CONCEITO_MATADOR_RE = re.compile(r"conceito\s+matador", re.IGNORECASE)
+
+
+def _contains_bold_conceito_matador(block: dict) -> bool:
+    """Rule 5 (extensão) — parágrafo introdutório do ícone de conceito
+    matador: nem sempre segue o padrão "Termo:" no início do parágrafo
+    (ex.: "Sempre que vir este símbolo... você está diante de um
+    *conceito matador*.", com o negrito no MEIO da frase). Detecta
+    qualquer trecho em negrito (contíguo, tolerando o espaço entre linhas
+    — não hifenização, que já vem resolvida por _block_runs) contendo
+    "conceito matador", em qualquer posição do parágrafo."""
+    bold_run_text = ""
+    for r in _block_runs(block):
+        text = r["text"]
+        if not text.strip():
+            # espaço entre linhas — não quebra uma sequência em negrito
+            bold_run_text += text
+            continue
+        if r["bold"]:
+            bold_run_text += text
+        else:
+            if _CONCEITO_MATADOR_RE.search(bold_run_text):
+                return True
+            bold_run_text = ""
+    return bool(_CONCEITO_MATADOR_RE.search(bold_run_text))
 
 
 def _is_destaque(block: dict) -> bool:
     """Rule 5 — caixa de destaque. Primeiro span Bold, cor fora do
     conjunto de cores de heading (navy/magenta — na prática sempre
     #333333, com uma exceção observada de #464e69 por troca de fonte no
-    PDF de origem, tolerada de propósito), texto-rótulo curto."""
+    PDF de origem, tolerada de propósito), texto-rótulo curto. TAMBÉM
+    entra como destaque qualquer parágrafo com "conceito matador" em
+    negrito em qualquer posição (não só o padrão "Termo:" no início)."""
+    if _contains_bold_conceito_matador(block):
+        return True
     span = _first_real_span(block)
     if span is None:
         return False
@@ -489,7 +623,20 @@ def analyze_pdf_caderno_v2(pdf_path: str, original_filename: str = "") -> Cadern
                 and not _is_destaque(block)
             )
             if is_continuation_candidate:
-                open_block_ref.content = f"{open_block_ref.content} {_block_html(block)}".strip()
+                new_html = _block_html(block)
+                prev_content = open_block_ref.content
+                first_char = _html_first_visible_char(new_html)
+                if (
+                    _html_ends_with_hyphenated_word(prev_content)
+                    and first_char.isalpha()
+                    and first_char.islower()
+                ):
+                    # Mesma palavra quebrada bem no fim da página anterior
+                    # (rule fix da hifenização — a quebra de página é, na
+                    # prática, uma quebra de linha como qualquer outra).
+                    open_block_ref.content = _strip_trailing_hyphen(prev_content) + new_html
+                else:
+                    open_block_ref.content = f"{prev_content} {new_html}".strip()
                 last_block_page = page_num
                 continue
 
