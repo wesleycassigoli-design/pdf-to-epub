@@ -24,9 +24,9 @@ span a span; ver comentários de cada função para os valores observados):
    - Texto casa com "^\\d+\\.\\s" → <h2 id="sigil_toc_id_N">
    - Caso contrário → <h3 class="sigil_not_in_toc"> (subtítulo introdutório)
 3. "Como cai na prova!": bloco Bold, size~13, color #ce0058 (magenta) →
-   <h3 class="sigil_not_in_toc">. O bloco imediatamente seguinte, se
-   inteiramente Bold+magenta (ex.: "2023 - HOB"), é o identificador da
-   prova → <p><b>texto</b></p>.
+   <h3 class="sigil_not_in_toc"> com o ícone ICONE_ComoCaiNaProva.png (ver
+   rule 13). O bloco imediatamente seguinte, se inteiramente Bold+magenta
+   (ex.: "2023 - HOB"), é o identificador da prova → <p><b>texto</b></p>.
 4. Bullets: bloco cuja 1ª linha é só o marcador "•" (nível 0) ou "◦" (nível
    1, fonte pode ser ArialMT) → <li>, nível pelo glifo do marcador (não pela
    indentação, que varia).
@@ -61,6 +61,27 @@ span a span; ver comentários de cada função para os valores observados):
 12. Fallback: qualquer bloco que não bata com nenhuma regra acima entra
     como <p> normal (bold/itálico inline preservados). Nunca trava por
     padrão não reconhecido, nunca perde conteúdo — registrado em warnings.
+13. Caixa de "Como cai na prova!": o enunciado (identificador de prova +
+    pergunta) e os comentários ficam sobre um retângulo rosa-claro
+    (fill ≈ rgb(0.99, 0.95, 0.97)) desenhado via page.get_drawings() — não
+    aparece na extração de texto/imagem, só nos "drawings" vetoriais da
+    página. Detectado por página (_merged_prova_caixa_regions): os
+    retângulos com esse fill são mesclados num intervalo vertical por
+    caixa visual (o mesmo retângulo é desenhado em vários pedaços
+    sobrepostos, provavelmente pelos cantos arredondados). Um bloco cujo
+    centro vertical cai dentro de um desses intervalos, NA SUA PRÓPRIA
+    PÁGINA, é marcado in_prova_caixa=True — só se aplica aos tipos
+    "gabarito_comentario" (identificador de prova / "Comentários:") e
+    "paragraph" (enunciado / itens a/b/c/d dos comentários), nunca a
+    heading/bullet/destaque. "Gabarito: x" e as alternativas soltas
+    (a/b/c/d da pergunta) NUNCA caem dentro da caixa (confirmado
+    visualmente no PDF de referência) — ficam fora, sem alteração. Como a
+    caixa é redesenhada em cada página que ocupa, a checagem por página
+    já resolve sozinha o caso de caixa que continua na página seguinte —
+    não precisa de lógica de continuação dedicada. Se o PDF não tiver
+    esses retângulos (rule fix opcional), in_prova_caixa fica sempre
+    False e o texto sai como antes, sem caixa — nunca trava por falta do
+    padrão.
 """
 
 import re
@@ -125,6 +146,14 @@ def _strip_accents_lower(text: str) -> str:
     return "".join(c for c in norm if not unicodedata.combining(c)).lower()
 
 
+# Alternativa solta de múltipla escolha ("a) texto", "b) texto"...) — nunca é
+# continuação de um parágrafo anterior, mesmo quando cai como 1º bloco de uma
+# nova página (rule 8): é sempre uma opção nova. Sem essa checagem, uma
+# alternativa "a)" que comece bem no topo de uma página era incorretamente
+# grudada no fim do enunciado da página anterior.
+_LETTERED_OPTION_RE = re.compile(r"^[a-e]\)\s")
+
+
 # ─── Estruturas de dados ──────────────────────────────────────────────────────
 
 @dataclass
@@ -155,6 +184,7 @@ class CadernoV2Block:
     toc_id: int | None = None
     marker_level: int = 0
     incidencia: IncidenciaData | None = None
+    in_prova_caixa: bool = False  # rule 13 — dentro da caixa rosa de "Como cai na prova!"
 
 
 @dataclass
@@ -411,6 +441,61 @@ def _is_como_cai_na_prova(block: dict) -> bool:
     )
 
 
+# ─── Rule 13 — caixa rosa de "Como cai na prova!" ────────────────────────────
+
+# rgb(0.99, 0.95, 0.97) ≈ #fcf2f7, confirmado via page.get_drawings() no PDF
+# de referência — cor de fundo (fill) das caixas do enunciado/comentários.
+PROVA_CAIXA_FILL_RGB = (0.99, 0.95, 0.97)
+PROVA_CAIXA_FILL_TOLERANCE = 0.03
+
+# Tolerância (pt) pra considerar o centro vertical de um bloco "dentro" de
+# uma caixa — folga pequena pra bbox de texto que raspa a borda da caixa.
+PROVA_CAIXA_CENTER_TOLERANCE_PT = 2.0
+
+# Intervalos verticais consecutivos (mesma cor de fill) mais próximos que
+# isso são tratados como a MESMA caixa visual (o PDF de referência desenha
+# uma caixa de cantos arredondados como vários retângulos sobrepostos).
+PROVA_CAIXA_MERGE_GAP_PT = 1.0
+
+
+def _is_prova_caixa_fill(fill) -> bool:
+    if not fill or len(fill) < 3:
+        return False
+    return all(
+        abs(fill[i] - PROVA_CAIXA_FILL_RGB[i]) < PROVA_CAIXA_FILL_TOLERANCE
+        for i in range(3)
+    )
+
+
+def _merged_prova_caixa_regions(page: "fitz.Page") -> list[tuple[float, float]]:
+    """Retângulos rosa-claros da página, mesclados em intervalos verticais
+    (uma entrada por caixa visual). A checagem é feita por página — como o
+    PDF redesenha a mesma caixa lógica em cada página que ela ocupa, isso
+    já resolve sozinho o caso de caixa que continua na página seguinte,
+    sem precisar de nenhuma lógica de continuação dedicada (rule 13)."""
+    intervals = []
+    for d in page.get_drawings():
+        if _is_prova_caixa_fill(d.get("fill")) and d.get("rect") is not None:
+            r = d["rect"]
+            intervals.append((r.y0, r.y1))
+    intervals.sort()
+    merged: list[list[float]] = []
+    for y0, y1 in intervals:
+        if merged and y0 <= merged[-1][1] + PROVA_CAIXA_MERGE_GAP_PT:
+            merged[-1][1] = max(merged[-1][1], y1)
+        else:
+            merged.append([y0, y1])
+    return [(y0, y1) for y0, y1 in merged]
+
+
+def _block_in_prova_caixa(block: dict, regions: list[tuple[float, float]]) -> bool:
+    if not regions:
+        return False
+    y0, y1 = block["bbox"][1], block["bbox"][3]
+    center = (y0 + y1) / 2
+    return any(ry0 - PROVA_CAIXA_CENTER_TOLERANCE_PT <= center <= ry1 + PROVA_CAIXA_CENTER_TOLERANCE_PT for ry0, ry1 in regions)
+
+
 def _destaque_label_len(block: dict) -> int | None:
     """Soma os runs Bold iniciais do bloco até o primeiro ':' — usado
     pela heurística da rule 5. Retorna None se não houver ':' nos runs
@@ -593,6 +678,7 @@ def analyze_pdf_caderno_v2(pdf_path: str, original_filename: str = "") -> Cadern
             continue
 
         content_blocks = [b for b in page_dict["blocks"] if b.get("type") == 0]
+        prova_caixa_regions = _merged_prova_caixa_regions(page)
 
         for block in content_blocks:
             if not block.get("lines"):
@@ -621,6 +707,7 @@ def analyze_pdf_caderno_v2(pdf_path: str, original_filename: str = "") -> Cadern
                 and not _is_como_cai_na_prova(block)
                 and not _is_fully_styled(block, MAGENTA)
                 and not _is_destaque(block)
+                and not _LETTERED_OPTION_RE.match(text_plain)
             )
             if is_continuation_candidate:
                 new_html = _block_html(block)
@@ -671,8 +758,15 @@ def analyze_pdf_caderno_v2(pdf_path: str, original_filename: str = "") -> Cadern
 
             if _is_fully_styled(block, MAGENTA):
                 # Regras 3 (identificador de prova) e 6 (Gabarito/Comentário) —
-                # mesmo tratamento visual: <p><b>texto</b></p>.
-                new_block = CadernoV2Block("gabarito_comentario", content=_block_html(block))
+                # mesmo tratamento visual: <p><b>texto</b></p>. Regra 13 — o
+                # identificador de prova cai dentro da caixa rosa, "Gabarito:"
+                # nunca cai (a checagem geométrica distingue os dois sem
+                # precisar olhar o texto).
+                new_block = CadernoV2Block(
+                    "gabarito_comentario",
+                    content=_block_html(block),
+                    in_prova_caixa=_block_in_prova_caixa(block, prova_caixa_regions),
+                )
                 blocks.append(new_block)
                 open_block_ref = new_block
                 continue
@@ -683,8 +777,15 @@ def analyze_pdf_caderno_v2(pdf_path: str, original_filename: str = "") -> Cadern
                 open_block_ref = new_block
                 continue
 
-            # Regra 11 — fallback: parágrafo comum.
-            new_block = CadernoV2Block("paragraph", content=_block_html(block))
+            # Regra 11 — fallback: parágrafo comum. Regra 13 — enunciado e
+            # itens de comentário (a/b/c/d) da prova caem dentro da caixa
+            # rosa quando ela existir; alternativas soltas da pergunta nunca
+            # caem (confirmado geometricamente no PDF de referência).
+            new_block = CadernoV2Block(
+                "paragraph",
+                content=_block_html(block),
+                in_prova_caixa=_block_in_prova_caixa(block, prova_caixa_regions),
+            )
             blocks.append(new_block)
             open_block_ref = new_block
 

@@ -16,6 +16,7 @@ Estrutura gerada:
 - OEBPS/Styles/brand_caderno_v2.css
 - OEBPS/Fonts/AfyaSans-*.ttf         (4 — completas, reaproveitadas do acervo Medcel)
 - OEBPS/Images/ICONE_ConceitoMatador.png
+- OEBPS/Images/ICONE_ComoCaiNaProva.png
 
 AfyaSansPro NÃO é embutida no EPUB (ver backend/app/assets/fonts/afyasans_caderno_v2/README.md):
 o subconjunto extraído do PDF de referência falha a sanitização de fonte de
@@ -52,7 +53,9 @@ _FONT_FILES = [
 # usam AfyaSans-Bold/Regular como substituto visual até existir um
 # AfyaSansPro completo no acervo.
 
-_ICON_FILE = "ICONE_ConceitoMatador.png"
+_ICON_CONCEITO_MATADOR = "ICONE_ConceitoMatador.png"
+_ICON_COMO_CAI_NA_PROVA = "ICONE_ComoCaiNaProva.png"
+_ICON_FILES = [_ICON_CONCEITO_MATADOR, _ICON_COMO_CAI_NA_PROVA]
 
 _BODY_XHTML = "Section0002.xhtml"
 _SUMARIO_XHTML = "Section0001.xhtml"
@@ -132,6 +135,13 @@ def _build_body_xhtml(structure: CadernoV2Structure) -> str:
             lines.append('</ul>')
             list_stack.pop()
 
+    # Container .prova-caixa (rule 13) — aberto/fechado em runs consecutivos
+    # de blocos com in_prova_caixa=True (identificador de prova + enunciado,
+    # ou "Comentários:" + itens a/b/c/d). Opcional: se o PDF não tiver os
+    # retângulos rosa correspondentes, nenhum bloco vem marcado e essa div
+    # nunca abre — texto sai como antes, sem caixa.
+    prova_caixa_open = False
+
     for block in structure.blocks:
         if block.block_type != "list_item":
             close_lists_to(0)
@@ -145,6 +155,13 @@ def _build_body_xhtml(structure: CadernoV2Structure) -> str:
                 close_lists_to(level + 1)
                 close_li_at(level)
 
+        if block.in_prova_caixa and not prova_caixa_open:
+            lines.append('<div class="prova-caixa">')
+            prova_caixa_open = True
+        elif not block.in_prova_caixa and prova_caixa_open:
+            lines.append('</div>')
+            prova_caixa_open = False
+
         if block.block_type == "incidencia":
             lines.append(_render_incidencia(block, edit_counter))
 
@@ -155,7 +172,12 @@ def _build_body_xhtml(structure: CadernoV2Structure) -> str:
             lines.append(f'<h3 class="sigil_not_in_toc" data-edit-id="{_next_edit_id(edit_counter)}">{_escape_xml(block.content)}</h3>')
 
         elif block.block_type == "como_cai_na_prova":
-            lines.append(f'<h3 class="sigil_not_in_toc como-cai-na-prova" data-edit-id="{_next_edit_id(edit_counter)}">{_escape_xml(block.content)}</h3>')
+            lines.append(
+                '<div class="prova-header">\n'
+                f'<img class="prova-icone" data-edit-id="{_next_edit_id(edit_counter)}" alt="ICONE_ComoCaiNaProva" src="../Images/{_ICON_COMO_CAI_NA_PROVA}"/>\n'
+                f'<h3 class="sigil_not_in_toc como-cai-na-prova" data-edit-id="{_next_edit_id(edit_counter)}">{_escape_xml(block.content)}</h3>\n'
+                '</div>'
+            )
 
         elif block.block_type == "gabarito_comentario":
             lines.append(f'<p class="gabarito-comentario" data-edit-id="{_next_edit_id(edit_counter)}">{block.content}</p>')
@@ -163,7 +185,7 @@ def _build_body_xhtml(structure: CadernoV2Structure) -> str:
         elif block.block_type == "destaque":
             lines.append(
                 '<div class="destaque">\n'
-                f'<div class="icone"><img data-edit-id="{_next_edit_id(edit_counter)}" alt="ICONE_ConceitoMatador" src="../Images/{_ICON_FILE}"/></div>\n'
+                f'<div class="icone"><img data-edit-id="{_next_edit_id(edit_counter)}" alt="ICONE_ConceitoMatador" src="../Images/{_ICON_CONCEITO_MATADOR}"/></div>\n'
                 f'<p data-edit-id="{_next_edit_id(edit_counter)}">{block.content}</p>\n'
                 '</div>'
             )
@@ -179,6 +201,8 @@ def _build_body_xhtml(structure: CadernoV2Structure) -> str:
             lines.append(f'<p data-edit-id="{_next_edit_id(edit_counter)}">{block.content}</p>')
 
     close_lists_to(0)
+    if prova_caixa_open:
+        lines.append('</div>')
 
     lines.append('</body>')
     lines.append('</html>')
@@ -218,7 +242,10 @@ def _make_content_opf(book_id: str, title: str) -> str:
         f'<item id="{_BODY_XHTML}" href="Text/{_BODY_XHTML}" media-type="application/xhtml+xml"/>',
         '<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>',
         '<item id="brand-caderno-v2-css" href="Styles/brand_caderno_v2.css" media-type="text/css"/>',
-        f'<item id="{_ICON_FILE.rsplit(".", 1)[0]}" href="Images/{_ICON_FILE}" media-type="image/png"/>',
+    ]
+    manifest_items += [
+        f'<item id="{fname.rsplit(".", 1)[0]}" href="Images/{fname}" media-type="image/png"/>'
+        for fname in _ICON_FILES
     ]
     manifest_items += [
         f'<item id="{fname.rsplit(".", 1)[0]}.ttf" href="Fonts/{fname}" media-type="font/ttf"/>'
@@ -320,7 +347,8 @@ def build_epub_caderno_v2(structure: CadernoV2Structure, output_path: str) -> st
 
         for fname in _FONT_FILES:
             zf.write(_FONTS_DIR / fname, f"OEBPS/Fonts/{fname}")
-        zf.write(_ICONS_DIR / _ICON_FILE, f"OEBPS/Images/{_ICON_FILE}")
+        for fname in _ICON_FILES:
+            zf.write(_ICONS_DIR / fname, f"OEBPS/Images/{fname}")
 
     logger.info(
         "epub_caderno_v2_built",

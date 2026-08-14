@@ -6,6 +6,22 @@
   São as únicas fontes de fato embutidas no EPUB gerado por
   `epub_generator_caderno_v2.py`.
 
+  **`AfyaSans-Bold.ttf` e `AfyaSans-BoldItalic.ttf` foram reprocessadas**
+  (`python -m fontTools.subset in.ttf --output-file=out.ttf --glyphs=* --no-hinting`)
+  pra remover as instruções de hinting embutidas — o arquivo original do
+  acervo Medcel faz o Chromium/Skia (e por extensão qualquer leitor de EPUB
+  baseado nele) desenhar o ponto do "i" minúsculo sumindo em vários tamanhos
+  comuns de fonte (15–18px testado), fazendo "Como cai na prova!" (e
+  qualquer heading em `h3.sigil_not_in_toc`, 16px) renderizar visualmente
+  como "Como cal na prova!" — o texto/HTML gerado sempre esteve correto
+  ("cai"), é só a rasterização do glifo que estava quebrada nesses dois
+  pesos. `AfyaSans-Regular.ttf`/`AfyaSans-Italic.ttf` não têm esse problema
+  e ficaram com o hinting original, sem necessidade de reprocessar.
+  Cobertura de glifos idêntica ao arquivo original (confirmado via
+  fontTools — `--no-hinting` só remove bytecode de grid-fitting, não
+  glifos). Se algum dia o acervo Medcel atualizar esses 2 arquivos,
+  reaplicar esse mesmo passo antes de copiar pra cá.
+
 - `AfyaSansPro-Light.ttf`, `AfyaSansPro-Regular.ttf`, `AfyaSansPro-Bold.ttf`,
   `AfyaSansPro-ExtraBold.ttf` — **NÃO são fontes completas**. São o
   subconjunto (subset) extraído diretamente de

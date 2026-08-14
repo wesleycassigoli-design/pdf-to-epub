@@ -148,6 +148,49 @@ margin-bottom: 0;
 }
 
 
+/* COMO CAI NA PROVA --------------------------------- */
+
+/* Cabeçalho (ícone + título) — sempre presente quando o heading aparece,
+   independente de o PDF ter ou não os retângulos rosa de fundo (rule 13). */
+.prova-header {
+display: flex;
+align-items: center;
+gap: 10px;
+margin-top: 1.4em;
+margin-bottom: 0.6em;
+}
+
+.prova-header .prova-icone {
+width: 30px;
+flex-shrink: 0;
+}
+
+.prova-header h3.como-cai-na-prova {
+margin-top: 0;
+margin-bottom: 0;
+}
+
+/* Caixa do enunciado / dos comentários — fundo rosa-claro próprio
+   (rgb(0.99,0.95,0.97) ≈ #fcf2f7, medido via page.get_drawings() no PDF de
+   referência), SEM a barra lateral colorida do .destaque — só o fundo
+   arredondado. Só existe quando o PDF tiver os retângulos correspondentes
+   (opcional: nunca é criada artificialmente). */
+.prova-caixa {
+background-color: #fcf2f7;
+border-radius: 6px;
+padding: 0.8em 1em;
+margin-bottom: 1.2em;
+}
+
+.prova-caixa p {
+margin-bottom: 0.6em;
+}
+
+.prova-caixa p:last-child {
+margin-bottom: 0;
+}
+
+
 /* GABARITO / COMENTÁRIO / IDENTIFICADOR DE PROVA -------------- */
 
 p.gabarito-comentario {
