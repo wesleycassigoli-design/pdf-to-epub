@@ -63,7 +63,9 @@ def _block_to_html(block: DocxBlock, edit_counter: list[int]) -> str:
         return f'<h3 data-edit-id="{_next_edit_id(edit_counter)}">{_escape_xml(block.content)}</h3>\n'
 
     if block.block_type == "list_item":
-        return f'<ol><li data-edit-id="{_next_edit_id(edit_counter)}"><b2>▶</b2> {block.content}</li></ol>\n'
+        if block.level and block.level >= 1:
+            return f'<ol class="nivel2"><li data-edit-id="{_next_edit_id(edit_counter)}"><b2>○</b2> {block.content}</li></ol>\n'
+        return f'<ol><li data-edit-id="{_next_edit_id(edit_counter)}"><b2>●</b2> {block.content}</li></ol>\n'
 
     if block.block_type == "alert":
         return f'<div class="alert-box">{block.content}</div>\n'

@@ -92,6 +92,9 @@ li {
   margin-left: -35px;
   line-height: 130%;
 }
+ol.nivel2 {
+  margin-left: 1.5em;
+}
 .destaque {
   background-color: #f1f1f1;
   padding-top: 10px;

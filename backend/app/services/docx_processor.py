@@ -69,6 +69,7 @@ class DocxBlock:
     content: str = ""    # texto HTML-safe
     image: DocxImage = None
     raw_html: str = ""   # HTML já montado (para tabelas)
+    level: int = 0        # nível de indentação de list_item (0 = nível 1, >=1 = nível 2)
 
 
 @dataclass
@@ -118,6 +119,7 @@ W_I = qn("w:i")
 W_SZ = qn("w:sz")
 W_VAL = qn("w:val")
 W_NUMPR = qn("w:numPr")
+W_ILVL = qn("w:ilvl")
 W_PPR = qn("w:pPr")
 
 
@@ -227,6 +229,23 @@ def _paragraph_has_numbering(paragraph) -> bool:
     if ppr is None:
         return False
     return ppr.find(W_NUMPR) is not None
+
+
+def _paragraph_ilvl(paragraph) -> int:
+    """Lê o nível de indentação nativo do Word (w:ilvl). 0 se ausente/lista não nativa."""
+    ppr = paragraph._p.find(W_PPR)
+    if ppr is None:
+        return 0
+    numpr = ppr.find(W_NUMPR)
+    if numpr is None:
+        return 0
+    ilvl_el = numpr.find(W_ILVL)
+    if ilvl_el is None:
+        return 0
+    try:
+        return int(ilvl_el.get(W_VAL))
+    except (TypeError, ValueError):
+        return 0
 
 
 # ─── Helpers de HTML ─────────────────────────────────────────────────────────
@@ -478,7 +497,11 @@ def analyze_docx(docx_path: str, original_filename: str = "") -> DocxStructure:
             if html_content.lstrip().startswith(BULLET_CHARS):
                 html_content = _strip_bullet_prefix(html_content)
             current_section.blocks.append(
-                DocxBlock(block_type="list_item", content=html_content or _escape_html(_strip_bullet_prefix(text)))
+                DocxBlock(
+                    block_type="list_item",
+                    content=html_content or _escape_html(_strip_bullet_prefix(text)),
+                    level=_paragraph_ilvl(para),
+                )
             )
             continue
 
